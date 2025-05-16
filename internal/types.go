@@ -1,5 +1,7 @@
 package internal
 
+import "net"
+
 type NodeStatus string
 
 const (
@@ -23,3 +25,11 @@ const (
 	NodeTypeLoadBalancer NodeType = "LOAD_BALANCER"
 	NodeTypeClient       NodeType = "CLIENT"
 )
+
+type KvStoreConfig struct {
+	ID            int
+	ShardKey      int
+	Status        NodeStatus
+	Address       net.TCPAddr
+	StoreNodeType StoreNodeType
+}

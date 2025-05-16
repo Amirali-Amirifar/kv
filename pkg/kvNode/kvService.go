@@ -2,14 +2,15 @@ package kvNode
 
 import (
 	"errors"
+	"github.com/Amirali-Amirifar/kv/internal"
 )
 
 type Service struct {
-	config *Config
-	store  *NodeStore
+	config *internal.KvStoreConfig
+	store  *Storage
 }
 
-func NewKvNodeService(config *Config) *Service {
+func NewKvNodeService(config *internal.KvStoreConfig) *Service {
 	return &Service{
 		config: config,
 		store:  NewNodeStore(),

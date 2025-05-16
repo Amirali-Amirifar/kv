@@ -6,28 +6,28 @@ import (
 )
 
 var log = logrus.WithFields(logrus.Fields{
-	"Service": "NodeStore",
+	"Service": "Storage",
 })
 
-type NodeStore struct {
+type Storage struct {
 	data map[string]string
 	mu   *sync.RWMutex
 }
 
-func NewNodeStore() *NodeStore {
-	return &NodeStore{
+func NewNodeStore() *Storage {
+	return &Storage{
 		data: make(map[string]string),
 		mu:   &sync.RWMutex{},
 	}
 }
 
-func (s *NodeStore) Set(key, value string) {
+func (s *Storage) Set(key, value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[key] = value
 	log.Printf("%+v\n", s.data)
 }
-func (s *NodeStore) Get(key string) (string, bool) {
+func (s *Storage) Get(key string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.data[key]
@@ -35,7 +35,7 @@ func (s *NodeStore) Get(key string) (string, bool) {
 	return val, ok
 }
 
-func (s *NodeStore) Delete(key string) {
+func (s *Storage) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.data, key)

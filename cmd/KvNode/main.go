@@ -12,7 +12,7 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	_log := log.WithFields(log.Fields{"package": "KvNode"})
 
-	config := &kvNode.Config{
+	config := &internal.KvStoreConfig{
 		ID:     0,
 		Status: internal.NodeStatusActive,
 		Address: net.TCPAddr{
