@@ -2,13 +2,14 @@ package dbnode
 
 import (
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal"
 )
 
 func (p *PartitionHandler) Set(key, value string) error {
 	if p.Role != PartitionRoleMaster {
 		return fmt.Errorf("partition %d is not master", p.ID)
 	}
-	if p.status != NodeStatusActive {
+	if p.status != internal.NodeStatusActive {
 		return fmt.Errorf("partition %d is not active", p.ID)
 	}
 
@@ -24,7 +25,7 @@ func (p *PartitionHandler) Set(key, value string) error {
 }
 
 func (p *PartitionHandler) Get(key string) (string, bool) {
-	if p.status != NodeStatusActive {
+	if p.status != internal.NodeStatusActive {
 		return "", false
 	}
 
@@ -35,7 +36,7 @@ func (p *PartitionHandler) Get(key string) (string, bool) {
 }
 
 func (p *ReplicaHandler) Get(key string) (string, bool) {
-	if p.status != NodeStatusActive {
+	if p.status != internal.NodeStatusActive {
 		return "", false
 	}
 

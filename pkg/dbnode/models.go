@@ -1,22 +1,15 @@
 package dbnode
 
 import (
+	"github.com/Amirali-Amirifar/kv/internal"
 	"sync"
 	"time"
-)
-
-type NodeStatus string
-
-const (
-	NodeStatusActive   NodeStatus = "active"
-	NodeStatusInactive NodeStatus = "inactive"
-	NodeStatusFailed   NodeStatus = "failed"
 )
 
 type Node struct {
 	ID         int
 	Address    string
-	Status     NodeStatus
+	Status     internal.NodeStatus
 	Partitions map[int]*PartitionHandler
 	mu         sync.RWMutex
 }
@@ -33,11 +26,11 @@ type PartitionHandler struct {
 	Role      PartitionRole
 	Replicas  map[int]*ReplicaHandler
 	Data      map[string]string
-	WAL       *WAL         //log of the partition
-	Snapshots []*Snapshot  // snapshots of the partition
-	dataMu    sync.RWMutex // lock for data
-	walMu     sync.Mutex   // lock for WAL
-	status    NodeStatus   // Node Status
+	WAL       *WAL                //log of the partition
+	Snapshots []*Snapshot         // snapshots of the partition
+	dataMu    sync.RWMutex        // lock for data
+	walMu     sync.Mutex          // lock for WAL
+	status    internal.NodeStatus // Node Status
 }
 
 type ReplicaHandler struct {
@@ -46,7 +39,7 @@ type ReplicaHandler struct {
 	LastSyncedLog   int
 	MasterPartition *PartitionHandler
 	mu              sync.RWMutex
-	status          NodeStatus
+	status          internal.NodeStatus
 	lastSyncTime    time.Time
 }
 
