@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/service"
 	"os"
 
@@ -13,8 +14,13 @@ var log = logrus.WithField("Package", "KvController")
 
 func runKvController(configPath string) {
 	log.Info("Starting KvController")
-	controller := service.NewKvController(configPath)
+
+	var cfg config.KvControllerConfig
+	config.LoadConfig(configPath, "", &cfg)
+
+	controller := service.NewKvController(&cfg)
 	err := controller.Start()
+
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -24,8 +30,8 @@ func main() {
 	var configPath string
 
 	rootCmd := &cobra.Command{
-		Use:   "app",
-		Short: "KV Address Service",
+		Use:   "kvController",
+		Short: "kv node orchestration tool",
 		Run: func(cmd *cobra.Command, args []string) {
 			runKvController(configPath)
 		},

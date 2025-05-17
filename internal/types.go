@@ -35,8 +35,3 @@ type KvStoreConfig struct {
 	Address       net.TCPAddr
 	StoreNodeType StoreNodeType
 }
-
-type KvControllerConfig struct {
-	IpAddress string `mapstructure:"ip_address"`
-	Port      int    `mapstructure:"port"`
-}

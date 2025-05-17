@@ -14,10 +14,7 @@ type KvController struct {
 	NodeManager *NodeManager
 }
 
-func NewKvController(configPath string) *KvController {
-	cfg := &config.KvControllerConfig{}
-	config.LoadConfig(configPath, "KvControllerConfig", cfg)
-
+func NewKvController(cfg *config.KvControllerConfig) *KvController {
 	logrus.Infof("Loaded controller config: %#v", cfg)
 
 	controller := &KvController{}

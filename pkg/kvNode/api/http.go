@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -11,13 +10,19 @@ import (
 	"strconv"
 )
 
+type KvService interface {
+	Get(key string) (string, error)
+	Set(key, value string) error
+	Del(key string) error
+}
+
 type HTTPServer struct {
-	svc    internal.KvService
+	svc    KvService
 	router *gin.Engine
 }
 
 // NewHTTPServer creates a new HTTP server with the given KV service
-func NewHTTPServer(svc internal.KvService) *HTTPServer {
+func NewHTTPServer(svc KvService) *HTTPServer {
 	router := gin.Default() // Includes logger and recovery middleware
 	return &HTTPServer{
 		svc:    svc,

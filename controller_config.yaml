@@ -1,9 +1,9 @@
-controller:
+address:
   host: "0.0.0.0"
   port: 8080
 
 cluster:
-  partitions: 4 # hash % 4 
+  partitions: 4 # hash % 4
   replicas: 2 # 1 leader and 1 follower
 
 discovery:

@@ -16,7 +16,12 @@ type DiscoveryConfig struct {
 }
 
 type KvControllerConfig struct {
-	Address   AddressConfig   `mapstructure:"controller"`
+	Address   AddressConfig   `mapstructure:"address"`
 	Cluster   ClusterConfig   `mapstructure:"cluster"`
 	Discovery DiscoveryConfig `mapstructure:"discovery"`
+}
+
+type KvNodeConfig struct {
+	Address    AddressConfig `mapstructure:"address"`
+	Controller AddressConfig `mapstructure:"controller"`
 }
