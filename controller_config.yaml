@@ -1,0 +1,15 @@
+controller:
+  host: "0.0.0.0"
+  port: 8080
+
+cluster:
+  partitions: 4 # hash % 4 
+  replicas: 2 # 1 leader and 1 follower
+
+discovery:
+  heartbeat_interval_ms: 1000
+  failure_timeout_ms: 5000
+
+api:
+  enable_dashboard: true
+  dashboard_port: 9091

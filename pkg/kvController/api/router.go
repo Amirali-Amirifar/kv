@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -17,27 +18,35 @@ type ControllerRouteHandler interface {
 
 	ChangePartitionLeaderHandler(ctx *gin.Context)
 	MovePartitionHandler(ctx *gin.Context)
+
+	NodeRegisterHandler(ctx *gin.Context)
 }
 
 // SetupRouter initializes Gin router with routes bound to provided handlers
 func SetupRouter(h ControllerRouteHandler) *gin.Engine {
 	router := gin.Default()
-
-	router.GET("/health", h.HealthHandler)
-
-	router.POST("/nodes", h.AddNodeHandler)
-	router.DELETE("/nodes/:id", h.RemoveNodeHandler)
-
-	router.POST("/partitions/increase", h.IncreasePartitionsHandler)
-	router.POST("/partitions/decrease", h.DecreasePartitionsHandler)
-
-	router.POST("/partitions/:id/leader", h.ChangePartitionLeaderHandler)
-	router.POST("/partitions/:id/move", h.MovePartitionHandler)
-
-	// Optional: simple root endpoint
 	router.GET("/", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "Controller API is running")
+		ctx.String(http.StatusOK, "KvController API is running")
 	})
+	router.GET("/health", h.HealthHandler)
+	admin := router.Group("/admin")
+	{
+		// Node management
+		admin.POST("/nodes", h.AddNodeHandler)
+		admin.DELETE("/nodes/:id", h.RemoveNodeHandler)
+
+		// Partition management
+		admin.POST("/partitions/increase", h.IncreasePartitionsHandler)
+		admin.POST("/partitions/decrease", h.DecreasePartitionsHandler)
+		admin.POST("/partitions/:id/leader", h.ChangePartitionLeaderHandler)
+		admin.POST("/partitions/:id/move", h.MovePartitionHandler)
+	}
+
+	internal := router.Group("/internal")
+	{
+		internal.POST("/nodes/register", h.NodeRegisterHandler)
+	}
+	log.Println("Controller router setup complete, new nodes can connect via /internal/nodes/register")
 
 	return router
 }
