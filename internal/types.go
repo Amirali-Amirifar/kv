@@ -28,6 +28,8 @@ const (
 	NodeTypeClient       NodeType = "CLIENT"
 )
 
+// KvStoreConfig
+// Deprecated: Do not use this anymore
 type KvStoreConfig struct {
 	ID            int
 	ShardKey      int
