@@ -47,16 +47,14 @@ func (hm *HealthManager) healthCheckLoop() {
 	}
 }
 
-func (hm *HealthManager) checkNodes() {
-	nodes := hm.SystemManager.GetActiveNodes()
+func (hm *HealthManager) checkNodes() map[int]internal.NodeStatus {
+	nodes := hm.SystemManager.NodesManagers
+	nodeStatus := make(map[int]internal.NodeStatus)
+
 	for _, node := range nodes {
-		if err := hm.checkNode(node); err != nil {
-			// If node is unresponsive, mark it as failed
-			hm.SystemManager.mutex.Lock()
-			defer hm.SystemManager.mutex.Unlock()
-			hm.SystemManager.NodesManagers[node.ID].Status = internal.NodeStatusFailed
-		}
+		nodeStatus[node.ID] = node.Status
 	}
+	return nodeStatus
 }
 
 func (hm *HealthManager) checkNode(node NodeManager) error {

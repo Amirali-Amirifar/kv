@@ -1,13 +1,16 @@
 package api
 
 import (
+	"net/http"
+
+	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 type KvControllerInterface interface {
 	RegisterNode(address string, port int) error
+	CheckNodesHealth() map[int]internal.NodeStatus
 }
 
 // KvRouteHandler implement ControllerRouteHandler
@@ -23,8 +26,11 @@ func NewRouteHandler(controller KvControllerInterface) *KvRouteHandler {
 
 // HealthHandler Returns status of all nodes.
 func (k *KvRouteHandler) HealthHandler(ctx *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	nodeStatus := k.controller.CheckNodesHealth()
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"nodes": nodeStatus,
+	})
 }
 
 // AddNodeHandler Adds a node to a designated partition

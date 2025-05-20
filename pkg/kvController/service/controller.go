@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/api"
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,6 @@ func (c *KvController) RegisterNode(address string, port int) error {
 	return c.HealthManager.SystemManager.RegisterNode(address, port)
 }
 
-func (c *KvController) CheckNodesHealth() {
-	c.HealthManager.checkNodes()
+func (c *KvController) CheckNodesHealth() map[int]internal.NodeStatus {
+	return c.HealthManager.checkNodes()
 }

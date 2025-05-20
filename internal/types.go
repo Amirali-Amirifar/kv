@@ -4,7 +4,6 @@ type NodeStatus string
 
 const (
 	NodeStatusActive       NodeStatus = "ACTIVE"
-	NodeStatusInactive     NodeStatus = "INACTIVE"
 	NodeStatusFailed       NodeStatus = "FAILED"
 	NodeStatusUnregistered NodeStatus = "UNREGISTERED"
 	NodeStatusSyncing      NodeStatus = "SYNCING"
