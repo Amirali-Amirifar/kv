@@ -16,8 +16,6 @@ type Storage struct {
 }
 
 func NewNodeStore() *Storage {
-	// TODO add start function,
-	// TODO call controller
 	return &Storage{
 		data: make(map[string]string),
 		mu:   &sync.RWMutex{},
