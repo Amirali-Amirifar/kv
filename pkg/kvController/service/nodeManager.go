@@ -81,7 +81,7 @@ func (nm *NodeManager) RegisterNode(address string, port int) error {
 		if node.Status == internal.NodeStatusUnregistered || node.Status == internal.NodeStatusFailed {
 			node.Address = addr
 			node.Status = internal.NodeStatusSyncing
-			// get data and sync with master partition
+			// TODO: Add data to syncing nodes
 			node.LastChecked = time.Now()
 			return nil
 		}
