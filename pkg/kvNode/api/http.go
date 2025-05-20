@@ -3,11 +3,12 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 type KvService interface {
@@ -64,6 +65,7 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/get", s.handleGet)
 	s.router.POST("/set", s.handleSet)
 	s.router.POST("/del", s.handleDel)
+	s.router.POST("/health", s.handleHealth)
 }
 
 // handleGet processes GET requests
@@ -113,4 +115,8 @@ func (s *HTTPServer) handleDel(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, DelResponse{})
+}
+
+func (s *HTTPServer) handleHealth(c *gin.Context) {
+	c.Status(http.StatusOK)
 }
