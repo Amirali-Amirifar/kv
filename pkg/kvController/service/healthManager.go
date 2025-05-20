@@ -2,22 +2,25 @@ package service
 
 import (
 	"fmt"
-	"net"
+	"net/http"
 	"time"
 
 	"github.com/Amirali-Amirifar/kv/internal"
+	"github.com/Amirali-Amirifar/kv/internal/config"
 )
 
 type HealthManager struct {
 	nodeManager *NodeManager
 	interval    time.Duration
+	timeout     time.Duration
 	stopChan    chan struct{}
 }
 
-func NewHealthManager(nodeManager *NodeManager, interval time.Duration) *HealthManager {
+func NewHealthManager(nodeManager *NodeManager, cfg *config.KvControllerConfig) *HealthManager {
 	return &HealthManager{
 		nodeManager: nodeManager,
-		interval:    interval,
+		interval:    time.Duration(cfg.Discovery.HeartbeatIntervalMs) * time.Millisecond,
+		timeout:     time.Duration(cfg.Discovery.FailureTimeoutMs) * time.Millisecond,
 		stopChan:    make(chan struct{}),
 	}
 }
@@ -50,20 +53,23 @@ func (hm *HealthManager) checkNodes() {
 		if err := hm.checkNode(node); err != nil {
 			// If node is unresponsive, mark it as failed
 			hm.nodeManager.mutex.Lock()
+			defer hm.nodeManager.mutex.Unlock()
 			hm.nodeManager.Nodes[node.ID].Status = internal.NodeStatusFailed
-			hm.nodeManager.mutex.Unlock()
 		}
 	}
 }
 
 func (hm *HealthManager) checkNode(node NodeInfo) error {
-	// Try to establish a TCP connection to the node
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", node.Address.IP.String(), node.Address.Port), 2*time.Second)
+	client := &http.Client{Timeout: hm.timeout}
+	resp, err := client.Get(fmt.Sprintf("http://%s:%d/health", node.Address.IP.String(), node.Address.Port))
 	if err != nil {
-		return fmt.Errorf("node health check failed: %v", err)
+		return err
 	}
-	defer conn.Close()
-	// TODO: Implement actual health check protocol
-	// For now, just establishing a connection is enough to consider the node healthy
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("node returned non-200 status: %d", resp.StatusCode)
+	}
+
 	return nil
 }
