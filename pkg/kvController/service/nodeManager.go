@@ -9,6 +9,12 @@ import (
 	"github.com/Amirali-Amirifar/kv/internal"
 )
 
+type ShardInfo struct {
+	ShardKey  int
+	Master    *NodeInfo
+	Followers []*NodeInfo
+}
+
 type NodeInfo struct {
 	ID            int
 	ShardKey      int
@@ -23,6 +29,7 @@ type NodeManager struct {
 	partitions int
 	Nodes      []*NodeInfo
 	mutex      sync.Mutex
+	ShardMap   map[int]*ShardInfo
 }
 
 func NewNodeManager(partitions int, replicas int) *NodeManager {
@@ -40,6 +47,7 @@ func (nm *NodeManager) initializeNodes() {
 	numNodes := nm.partitions * nm.replicas
 	nodes := make([]*NodeInfo, 0, numNodes)
 
+	// Step 1: Initialize nodes and assign shard keys
 	for i := 0; i < numNodes; i++ {
 		nodes = append(nodes, &NodeInfo{
 			ID:            i,
@@ -50,6 +58,26 @@ func (nm *NodeManager) initializeNodes() {
 		})
 	}
 	nm.Nodes = nodes
+
+	nm.ShardMap = make(map[int]*ShardInfo)
+
+	for _, node := range nm.Nodes {
+		shardKey := node.ShardKey
+
+		if shardInfo, exists := nm.ShardMap[shardKey]; !exists {
+			// First node for this shard: make it the leader
+			node.StoreNodeType = internal.NodeTypeMaster
+			nm.ShardMap[shardKey] = &ShardInfo{
+				ShardKey:  shardKey,
+				Master:    node,
+				Followers: []*NodeInfo{},
+			}
+		} else {
+			// Next nodes are replicas
+			node.StoreNodeType = internal.NodeTypeFollower
+			shardInfo.Followers = append(shardInfo.Followers, node)
+		}
+	}
 }
 
 func (nm *NodeManager) RegisterNode(address string, port int) error {

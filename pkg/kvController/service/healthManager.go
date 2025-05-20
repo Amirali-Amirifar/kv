@@ -70,6 +70,7 @@ func (hm *HealthManager) checkNode(node NodeInfo) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("node returned non-200 status: %d", resp.StatusCode)
 	}
-
+	// for debugging
+	node.LastChecked = time.Now()
 	return nil
 }
