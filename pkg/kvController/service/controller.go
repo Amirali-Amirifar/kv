@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/api"
 	"github.com/gin-gonic/gin"
@@ -9,9 +10,10 @@ import (
 )
 
 type KvController struct {
-	Router      *gin.Engine
-	Config      *config.KvControllerConfig
-	NodeManager *NodeManager
+	Router        *gin.Engine
+	Config        *config.KvControllerConfig
+	NodeManager   *NodeManager
+	HealthManager *HealthManager
 }
 
 func NewKvController(cfg *config.KvControllerConfig) *KvController {
@@ -34,4 +36,8 @@ func (c *KvController) Start() error {
 
 func (c *KvController) RegisterNode(address string, port int) error {
 	return c.NodeManager.RegisterNode(address, port)
+}
+
+func (c *KvController) CheckNodesHealth() {
+	c.HealthManager.checkNodes()
 }
