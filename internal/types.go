@@ -1,7 +1,5 @@
 package internal
 
-import "net"
-
 type NodeStatus string
 
 const (
@@ -9,6 +7,7 @@ const (
 	NodeStatusInactive     NodeStatus = "INACTIVE"
 	NodeStatusFailed       NodeStatus = "FAILED"
 	NodeStatusUnregistered NodeStatus = "UNREGISTERED"
+	NodeStatusSyncing      NodeStatus = "SYNCING"
 )
 
 type StoreNodeType string
@@ -27,13 +26,3 @@ const (
 	NodeTypeLoadBalancer NodeType = "LOAD_BALANCER"
 	NodeTypeClient       NodeType = "CLIENT"
 )
-
-// KvStoreConfig
-// Deprecated: Do not use this anymore
-type KvStoreConfig struct {
-	ID            int
-	ShardKey      int
-	Status        NodeStatus
-	Address       net.TCPAddr
-	StoreNodeType StoreNodeType
-}
