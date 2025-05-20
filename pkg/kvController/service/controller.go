@@ -12,7 +12,7 @@ import (
 type KvController struct {
 	Router        *gin.Engine
 	Config        *config.KvControllerConfig
-	NodeManager   *NodeManager
+	SystemManager *SystemManager
 	HealthManager *HealthManager
 }
 
@@ -35,7 +35,7 @@ func (c *KvController) Start() error {
 }
 
 func (c *KvController) RegisterNode(address string, port int) error {
-	return c.NodeManager.RegisterNode(address, port)
+	return c.HealthManager.SystemManager.RegisterNode(address, port)
 }
 
 func (c *KvController) CheckNodesHealth() {

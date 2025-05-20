@@ -10,18 +10,18 @@ import (
 )
 
 type HealthManager struct {
-	nodeManager *NodeManager
-	interval    time.Duration
-	timeout     time.Duration
-	stopChan    chan struct{}
+	SystemManager *SystemManager
+	interval      time.Duration
+	timeout       time.Duration
+	stopChan      chan struct{}
 }
 
-func NewHealthManager(nodeManager *NodeManager, cfg *config.KvControllerConfig) *HealthManager {
+func NewHealthManager(systemManager *SystemManager, cfg *config.KvControllerConfig) *HealthManager {
 	return &HealthManager{
-		nodeManager: nodeManager,
-		interval:    time.Duration(cfg.Discovery.HeartbeatIntervalMs) * time.Millisecond,
-		timeout:     time.Duration(cfg.Discovery.FailureTimeoutMs) * time.Millisecond,
-		stopChan:    make(chan struct{}),
+		SystemManager: systemManager,
+		interval:      time.Duration(cfg.Discovery.HeartbeatIntervalMs) * time.Millisecond,
+		timeout:       time.Duration(cfg.Discovery.FailureTimeoutMs) * time.Millisecond,
+		stopChan:      make(chan struct{}),
 	}
 }
 
@@ -48,18 +48,18 @@ func (hm *HealthManager) healthCheckLoop() {
 }
 
 func (hm *HealthManager) checkNodes() {
-	nodes := hm.nodeManager.GetActiveNodes()
+	nodes := hm.SystemManager.GetActiveNodes()
 	for _, node := range nodes {
 		if err := hm.checkNode(node); err != nil {
 			// If node is unresponsive, mark it as failed
-			hm.nodeManager.mutex.Lock()
-			defer hm.nodeManager.mutex.Unlock()
-			hm.nodeManager.Nodes[node.ID].Status = internal.NodeStatusFailed
+			hm.SystemManager.mutex.Lock()
+			defer hm.SystemManager.mutex.Unlock()
+			hm.SystemManager.NodesManagers[node.ID].Status = internal.NodeStatusFailed
 		}
 	}
 }
 
-func (hm *HealthManager) checkNode(node NodeInfo) error {
+func (hm *HealthManager) checkNode(node NodeManager) error {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/health", node.Address.IP.String(), node.Address.Port))
 	if err != nil {
