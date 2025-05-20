@@ -14,6 +14,8 @@ type Service struct {
 }
 
 func NewKvNodeService(config *config.KvNodeConfig, state NodeState) *Service {
+	// TODO add start function,
+	// TODO call controller
 	svc := &Service{
 		config: config,
 		store:  NewNodeStore(),
