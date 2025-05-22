@@ -77,7 +77,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 		return fmt.Errorf("failed to notify new leader: %v", err)
 	}
 
-	var followers []*NodeInfo
+	var followers []*interfaces.NodeInfo
 	for _, f := range shardInfo.GetFollowers() {
 		if node, err := c.NodeManager.GetNodeInfo(f.GetID()); err == nil {
 			followers = append(followers, &node)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -61,7 +60,7 @@ func (s *HTTPServer) registerRoutes() {
 		log.WithFields(log.Fields{
 			"Service": "HTTP Server",
 			"Path":    c.Request.URL.Path,
-			"Body":    fmt.Sprintf(string(bodyBytes)),
+			"Body":    string(bodyBytes),
 		}).Info("Registering HTTP request")
 
 		c.Next()

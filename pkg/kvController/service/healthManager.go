@@ -8,6 +8,7 @@ import (
 
 	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
+	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/sirupsen/logrus"
 )
 
@@ -59,7 +60,7 @@ func (hm *HealthManager) checkNodes() {
 	}
 }
 
-func (hm *HealthManager) checkNode(node NodeInfo) error {
+func (hm *HealthManager) checkNode(node interfaces.NodeInfo) error {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/health", node.Address.IP.String(), node.Address.Port))
 	if err != nil {
@@ -74,7 +75,7 @@ func (hm *HealthManager) checkNode(node NodeInfo) error {
 	return nil
 }
 
-func (hm *HealthManager) handleNodeFailure(node NodeInfo) {
+func (hm *HealthManager) handleNodeFailure(node interfaces.NodeInfo) {
 	hm.nodeManager.mutex.Lock()
 	defer hm.nodeManager.mutex.Unlock()
 
@@ -97,7 +98,7 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}
 
 	// Find the follower with the highest sequence number
-	var newLeader *NodeInfo
+	var newLeader *interfaces.NodeInfo
 	var highestSeq int64 = -1
 
 	// Check all followers
@@ -129,7 +130,7 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	newLeader.StoreNodeType = internal.NodeTypeMaster
 
 	// Remove the new leader from followers list
-	newFollowers := make([]*NodeInfo, 0)
+	newFollowers := make([]*interfaces.NodeInfo, 0)
 	for _, f := range shardInfo.Followers {
 		if f.ID != newLeader.ID {
 			newFollowers = append(newFollowers, f)
@@ -154,7 +155,7 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}).Info("New leader elected")
 }
 
-func (hm *HealthManager) notifyNewLeader(node *NodeInfo) error {
+func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Post(
 		fmt.Sprintf("http://%s:%d/become-leader", node.Address.IP.String(), node.Address.Port),
@@ -173,7 +174,7 @@ func (hm *HealthManager) notifyNewLeader(node *NodeInfo) error {
 	return nil
 }
 
-func (hm *HealthManager) notifyFollowers(followers []*NodeInfo, newLeader *NodeInfo) error {
+func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
 	var lastErr error
 	for _, follower := range followers {
 		if follower.ID == newLeader.ID {
@@ -187,7 +188,7 @@ func (hm *HealthManager) notifyFollowers(followers []*NodeInfo, newLeader *NodeI
 	return lastErr
 }
 
-func (hm *HealthManager) notifyFollowerLeaderChange(follower *NodeInfo, newLeader *NodeInfo) error {
+func (hm *HealthManager) notifyFollowerLeaderChange(follower *interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Post(
 		fmt.Sprintf("http://%s:%d/update-leader", follower.Address.IP.String(), follower.Address.Port),
@@ -206,7 +207,7 @@ func (hm *HealthManager) notifyFollowerLeaderChange(follower *NodeInfo, newLeade
 	return nil
 }
 
-func (hm *HealthManager) getNodeLastSeq(node *NodeInfo) (int64, error) {
+func (hm *HealthManager) getNodeLastSeq(node *interfaces.NodeInfo) (int64, error) {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/last-seq", node.Address.IP.String(), node.Address.Port))
 	if err != nil {
