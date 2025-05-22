@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -155,12 +156,25 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}).Info("New leader elected")
 }
 
-func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
+func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state internal.StoreNodeType, leaderID int) error {
 	client := &http.Client{Timeout: hm.timeout}
+	stateUpdate := struct {
+		State    internal.StoreNodeType `json:"state"`
+		LeaderID int                    `json:"leader_id"`
+	}{
+		State:    state,
+		LeaderID: leaderID,
+	}
+
+	body, err := json.Marshal(stateUpdate)
+	if err != nil {
+		return fmt.Errorf("failed to marshal state: %v", err)
+	}
+
 	resp, err := client.Post(
-		fmt.Sprintf("http://%s:%d/become-leader", node.Address.IP.String(), node.Address.Port),
+		fmt.Sprintf("http://%s:%d/update-state", node.Address.IP.String(), node.Address.Port),
 		"application/json",
-		nil,
+		bytes.NewBuffer(body),
 	)
 	if err != nil {
 		return err
@@ -174,37 +188,22 @@ func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
 	return nil
 }
 
+func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
+	return hm.updateNodeState(node, internal.NodeTypeMaster, node.ID)
+}
+
 func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
 	var lastErr error
 	for _, follower := range followers {
 		if follower.ID == newLeader.ID {
 			continue // Skip the new leader
 		}
-		if err := hm.notifyFollowerLeaderChange(follower, newLeader); err != nil {
+		if err := hm.updateNodeState(follower, internal.NodeTypeFollower, newLeader.ID); err != nil {
 			logrus.WithError(err).WithField("follower", follower.ID).Warn("Failed to notify follower about leader change")
 			lastErr = err
 		}
 	}
 	return lastErr
-}
-
-func (hm *HealthManager) notifyFollowerLeaderChange(follower *interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
-	client := &http.Client{Timeout: hm.timeout}
-	resp, err := client.Post(
-		fmt.Sprintf("http://%s:%d/update-leader", follower.Address.IP.String(), follower.Address.Port),
-		"application/json",
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("follower returned non-200 status: %d", resp.StatusCode)
-	}
-
-	return nil
 }
 
 func (hm *HealthManager) getNodeLastSeq(node *interfaces.NodeInfo) (int64, error) {

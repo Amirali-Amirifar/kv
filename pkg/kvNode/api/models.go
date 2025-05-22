@@ -1,5 +1,7 @@
 package api
 
+import "github.com/Amirali-Amirifar/kv/internal"
+
 type GetRequest struct {
 	Key string `json:"key"`
 }
@@ -20,3 +22,8 @@ type DelRequest struct {
 }
 
 type DelResponse struct{}
+
+type UpdateStateRequest struct {
+	State    internal.StoreNodeType `json:"state"`
+	LeaderID int                    `json:"leader_id"`
+}
