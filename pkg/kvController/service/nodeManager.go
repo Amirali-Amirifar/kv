@@ -8,7 +8,26 @@ import (
 
 	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
+	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 )
+
+type NodeManagerInterface interface {
+	GetShardInfo(shardID int) (interface {
+		GetMaster() interface {
+			GetID() int
+			GetAddress() (string, int)
+			GetStatus() internal.NodeStatus
+		}
+		GetFollowers() []interface {
+			GetID() int
+			GetAddress() (string, int)
+			GetStatus() internal.NodeStatus
+		}
+	}, bool)
+	GetNodeInfo(nodeID int) (NodeInfo, error)
+	RegisterNode(address string, port int) error
+	UpdateShardMaster(shardID int, masterID int) error
+}
 
 type ShardInfo struct {
 	ShardKey  int
@@ -150,18 +169,7 @@ func (nm *NodeManager) GetActiveNodes() []NodeInfo {
 	return active
 }
 
-func (nm *NodeManager) GetShardInfo(shardID int) (interface {
-	GetMaster() interface {
-		GetID() int
-		GetAddress() (string, int)
-		GetStatus() internal.NodeStatus
-	}
-	GetFollowers() []interface {
-		GetID() int
-		GetAddress() (string, int)
-		GetStatus() internal.NodeStatus
-	}
-}, bool) {
+func (nm *NodeManager) GetShardInfo(shardID int) (interfaces.ShardInterface, bool) {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
@@ -219,24 +227,12 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 }
 
 // Add interface methods to ShardInfo
-func (s *ShardInfo) GetMaster() interface {
-	GetID() int
-	GetAddress() (string, int)
-	GetStatus() internal.NodeStatus
-} {
+func (s *ShardInfo) GetMaster() interfaces.NodeInterface {
 	return s.Master
 }
 
-func (s *ShardInfo) GetFollowers() []interface {
-	GetID() int
-	GetAddress() (string, int)
-	GetStatus() internal.NodeStatus
-} {
-	followers := make([]interface {
-		GetID() int
-		GetAddress() (string, int)
-		GetStatus() internal.NodeStatus
-	}, len(s.Followers))
+func (s *ShardInfo) GetFollowers() []interfaces.NodeInterface {
+	followers := make([]interfaces.NodeInterface, len(s.Followers))
 	for i, f := range s.Followers {
 		followers[i] = f
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/api"
+	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -94,4 +95,8 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	}).Info("Shard leader changed successfully")
 
 	return nil
+}
+
+func (c *KvController) GetNodeManager() interfaces.NodeManagerInterface {
+	return c.NodeManager
 }

@@ -5,21 +5,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
-type KvControllerInterface interface {
-	RegisterNode(address string, port int) error
-	ChangePartitionLeader(shardID int, nodeID int) error
-}
-
 // KvRouteHandler implement ControllerRouteHandler
 type KvRouteHandler struct {
-	controller KvControllerInterface
+	controller interfaces.KvControllerInterface
 }
 
-func NewRouteHandler(controller KvControllerInterface) *KvRouteHandler {
+func NewRouteHandler(controller interfaces.KvControllerInterface) *KvRouteHandler {
 	return &KvRouteHandler{
 		controller: controller,
 	}
@@ -63,9 +59,7 @@ func (k *KvRouteHandler) ChangePartitionLeaderHandler(ctx *gin.Context) {
 		return
 	}
 
-	var req struct {
-		NodeID int `json:"node_id" binding:"required"`
-	}
+	var req ChangeLeaderRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return

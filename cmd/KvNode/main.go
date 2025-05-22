@@ -16,7 +16,7 @@ func runKvNode(configPath string) {
 	var cfg config.KvNodeConfig
 	config.LoadConfig(configPath, "", &cfg)
 	log.Printf("Loaded Config %#v", cfg)
-	service := kvNode.NewKvNodeService(&cfg, kvNode.NodeState{})
+	service := kvNode.NewKvNodeService(&cfg)
 
 	server := api.NewHTTPServer(service)
 	err := server.Serve(cfg.Address.Port)

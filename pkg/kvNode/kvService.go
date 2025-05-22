@@ -11,22 +11,25 @@ import (
 
 type Service struct {
 	config *config.KvNodeConfig
-	store  *Storage
 	state  NodeState
+	store  *Storage
 	wal    *WAL
 	mu     sync.RWMutex
 }
 
-func NewKvNodeService(config *config.KvNodeConfig, state NodeState) *Service {
-	// TODO add start function,
-	// TODO call controller
+func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
 	svc := &Service{
-		config: config,
-		store:  NewNodeStore(),
+		config: cfg,
+		state: NodeState{
+			IsMaster: false,
+			ShardKey: 0,
+		},
+		store: NewNodeStore(),
+		mu:    sync.RWMutex{},
 	}
 
-	if state.IsMaster {
-		svc.wal = NewWAL(state.ShardKey)
+	if svc.state.IsMaster {
+		svc.wal = NewWAL(svc.state.ShardKey)
 	}
 
 	return svc
@@ -45,29 +48,27 @@ func (k *Service) Get(key string) (string, error) {
 }
 
 func (k *Service) Set(key, value string) error {
-	k.mu.Lock()
-	defer k.mu.Unlock()
+	k.store.Set(key, value)
 	if k.state.IsMaster {
-		k.store.Set(key, value)
 		if k.wal != nil {
 			k.wal.Append("SET", key, value)
+		} else {
+			return fmt.Errorf("WAL is nil.")
 		}
-		return nil
 	}
-	return fmt.Errorf("node is not master.")
+	return nil
 }
 
 func (k *Service) Del(key string) error {
-	k.mu.Lock()
-	defer k.mu.Unlock()
+	k.store.Delete(key)
 	if k.state.IsMaster {
-		k.store.Delete(key)
 		if k.wal != nil {
 			k.wal.Append("DELETE", key, "")
+		} else {
+			return fmt.Errorf("WAL is nil.")
 		}
-		return nil
 	}
-	return fmt.Errorf("node is not master.")
+	return nil
 }
 
 func (k *Service) GetLastSeq() int64 {
