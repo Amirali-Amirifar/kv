@@ -1,13 +1,31 @@
 package api
 
 import (
+	"net/http"
+	"strconv"
+
+	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 type KvControllerInterface interface {
 	RegisterNode(address string, port int) error
+	ChangePartitionLeader(shardID int, nodeID int) error
+	GetNodeManager() interface {
+		GetShardInfo(shardID int) (interface {
+			GetMaster() interface {
+				GetID() int
+				GetAddress() (string, int)
+				GetStatus() internal.NodeStatus
+			}
+			GetFollowers() []interface {
+				GetID() int
+				GetAddress() (string, int)
+				GetStatus() internal.NodeStatus
+			}
+		}, bool)
+	}
 }
 
 // KvRouteHandler implement ControllerRouteHandler
@@ -53,8 +71,59 @@ func (k *KvRouteHandler) DecreasePartitionsHandler(ctx *gin.Context) {
 
 // ChangePartitionLeaderHandler changes the leader from a partition
 func (k *KvRouteHandler) ChangePartitionLeaderHandler(ctx *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	shardID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid shard ID"})
+		return
+	}
+
+	var req struct {
+		NodeID int `json:"node_id" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	// Get current shard info
+	shardInfo, exists := k.controller.GetNodeManager().GetShardInfo(shardID)
+	if !exists {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "shard not found"})
+		return
+	}
+
+	// Verify target node is a follower
+	master := shardInfo.GetMaster()
+	followers := shardInfo.GetFollowers()
+	targetNodeFound := false
+	for _, follower := range followers {
+		if follower.GetID() == req.NodeID {
+			targetNodeFound = true
+			if follower.GetStatus() != internal.NodeStatusActive {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "target node is not active"})
+				return
+			}
+			break
+		}
+	}
+
+	if !targetNodeFound {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "target node is not a follower of this shard"})
+		return
+	}
+
+	// Change the leader
+	if err := k.controller.ChangePartitionLeader(shardID, req.NodeID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":    "leader changed successfully",
+		"shard_id":   shardID,
+		"old_leader": master.GetID(),
+		"new_leader": req.NodeID,
+	})
 }
 
 // MovePartitionHandler Moves a partition

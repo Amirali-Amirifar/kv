@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode/api"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 func runKvNode(configPath string) {
@@ -15,7 +16,7 @@ func runKvNode(configPath string) {
 	var cfg config.KvNodeConfig
 	config.LoadConfig(configPath, "", &cfg)
 	log.Printf("Loaded Config %#v", cfg)
-	service := kvNode.NewKvNodeService(&cfg)
+	service := kvNode.NewKvNodeService(&cfg, kvNode.NodeState{})
 
 	server := api.NewHTTPServer(service)
 	err := server.Serve(cfg.Address.Port)

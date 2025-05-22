@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Amirali-Amirifar/kv/internal"
+	"github.com/Amirali-Amirifar/kv/internal/config"
 )
 
 type ShardInfo struct {
@@ -21,25 +22,26 @@ type NodeInfo struct {
 	Status        internal.NodeStatus
 	Address       net.TCPAddr
 	StoreNodeType internal.StoreNodeType
-	LastChecked   time.Time
 }
 
 type NodeManager struct {
-	replicas   int
-	partitions int
-	Nodes      []*NodeInfo
-	mutex      sync.Mutex
-	ShardMap   map[int]*ShardInfo
+	replicas      int
+	partitions    int
+	Nodes         []*NodeInfo
+	mutex         sync.Mutex
+	ShardMap      map[int]*ShardInfo
+	timeout       time.Duration
+	healthManager *HealthManager
 }
 
-func NewNodeManager(partitions int, replicas int) *NodeManager {
+func NewNodeManager(partitions int, replicas int, cfg *config.KvControllerConfig) *NodeManager {
 	nm := &NodeManager{
 		replicas:   replicas,
 		partitions: partitions,
 		mutex:      sync.Mutex{},
+		timeout:    time.Duration(cfg.Discovery.HeartbeatIntervalMs) * time.Millisecond,
 	}
 	nm.initializeNodes()
-
 	return nm
 }
 
@@ -99,23 +101,30 @@ func (nm *NodeManager) RegisterNode(address string, port int) error {
 	defer nm.mutex.Unlock()
 
 	for _, node := range nm.Nodes {
-		if node.Address.IP.Equal(addr.IP) && node.Address.Port == addr.Port && node.Status == internal.NodeStatusActive {
-			node.LastChecked = time.Now()
-			return fmt.Errorf("node %s:%d is already registered", address, port)
-		}
-	}
-
-	for _, node := range nm.Nodes {
-		if node.Status == internal.NodeStatusUnregistered || node.Status == internal.NodeStatusFailed {
-			node.Address = addr
+		if node.Address.IP.Equal(addr.IP) && node.Address.Port == addr.Port {
+			if node.Status == internal.NodeStatusActive {
+				return fmt.Errorf("node %s:%d is already registered.", address, port)
+			}
 			node.Status = internal.NodeStatusSyncing
-			// TODO: Add data to syncing nodes
-			node.LastChecked = time.Now()
+			// TODO: Start syncing data from master.
 			return nil
 		}
 	}
-
-	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full", address, port)
+	for _, node := range nm.Nodes {
+		if node.StoreNodeType == internal.NodeTypeFollower && node.Status == internal.NodeStatusFailed {
+			node.Address = addr
+			node.Status = internal.NodeStatusSyncing
+			return nil
+		}
+	}
+	for _, node := range nm.Nodes {
+		if node.Status == internal.NodeStatusUnregistered {
+			node.Address = addr
+			node.Status = internal.NodeStatusSyncing
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full.", address, port)
 }
 
 func (nm *NodeManager) GetNodeInfo(nodeID int) (NodeInfo, error) {
@@ -139,4 +148,109 @@ func (nm *NodeManager) GetActiveNodes() []NodeInfo {
 		}
 	}
 	return active
+}
+
+func (nm *NodeManager) GetShardInfo(shardID int) (interface {
+	GetMaster() interface {
+		GetID() int
+		GetAddress() (string, int)
+		GetStatus() internal.NodeStatus
+	}
+	GetFollowers() []interface {
+		GetID() int
+		GetAddress() (string, int)
+		GetStatus() internal.NodeStatus
+	}
+}, bool) {
+	nm.mutex.Lock()
+	defer nm.mutex.Unlock()
+
+	shardInfo, exists := nm.ShardMap[shardID]
+	if !exists {
+		return nil, false
+	}
+
+	return shardInfo, true
+}
+
+func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
+	nm.mutex.Lock()
+	defer nm.mutex.Unlock()
+
+	shardInfo, exists := nm.ShardMap[shardID]
+	if !exists {
+		return fmt.Errorf("shard %d not found", shardID)
+	}
+
+	// Find the target node
+	var targetNode *NodeInfo
+	for _, follower := range shardInfo.Followers {
+		if follower.ID == masterID {
+			targetNode = follower
+			break
+		}
+	}
+
+	if targetNode == nil {
+		return fmt.Errorf("node %d not found in shard %d", masterID, shardID)
+	}
+
+	// Update the shard's master
+	oldMaster := shardInfo.Master
+	shardInfo.Master = targetNode
+	targetNode.StoreNodeType = internal.NodeTypeMaster
+
+	// Remove the new leader from followers list
+	newFollowers := make([]*NodeInfo, 0)
+	for _, f := range shardInfo.Followers {
+		if f.ID != targetNode.ID {
+			newFollowers = append(newFollowers, f)
+		}
+	}
+	shardInfo.Followers = newFollowers
+
+	// Add the old master to followers list if it exists
+	if oldMaster != nil {
+		oldMaster.StoreNodeType = internal.NodeTypeFollower
+		shardInfo.Followers = append(shardInfo.Followers, oldMaster)
+	}
+
+	return nil
+}
+
+// Add interface methods to ShardInfo
+func (s *ShardInfo) GetMaster() interface {
+	GetID() int
+	GetAddress() (string, int)
+	GetStatus() internal.NodeStatus
+} {
+	return s.Master
+}
+
+func (s *ShardInfo) GetFollowers() []interface {
+	GetID() int
+	GetAddress() (string, int)
+	GetStatus() internal.NodeStatus
+} {
+	followers := make([]interface {
+		GetID() int
+		GetAddress() (string, int)
+		GetStatus() internal.NodeStatus
+	}, len(s.Followers))
+	for i, f := range s.Followers {
+		followers[i] = f
+	}
+	return followers
+}
+
+func (n *NodeInfo) GetID() int {
+	return n.ID
+}
+
+func (n *NodeInfo) GetAddress() (string, int) {
+	return n.Address.IP.String(), n.Address.Port
+}
+
+func (n *NodeInfo) GetStatus() internal.NodeStatus {
+	return n.Status
 }
