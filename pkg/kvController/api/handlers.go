@@ -1,21 +1,21 @@
 package api
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
-
-type KvControllerInterface interface {
-	RegisterNode(address string, port int) error
-}
 
 // KvRouteHandler implement ControllerRouteHandler
 type KvRouteHandler struct {
-	controller KvControllerInterface
+	controller interfaces.KvControllerInterface
 }
 
-func NewRouteHandler(controller KvControllerInterface) *KvRouteHandler {
+func NewRouteHandler(controller interfaces.KvControllerInterface) *KvRouteHandler {
 	return &KvRouteHandler{
 		controller: controller,
 	}
@@ -53,8 +53,32 @@ func (k *KvRouteHandler) DecreasePartitionsHandler(ctx *gin.Context) {
 
 // ChangePartitionLeaderHandler changes the leader from a partition
 func (k *KvRouteHandler) ChangePartitionLeaderHandler(ctx *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	shardID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid shard ID"})
+		return
+	}
+
+	var req ChangeLeaderRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if err := k.controller.ChangePartitionLeader(shardID, req.NodeID); err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not a") {
+			status = http.StatusBadRequest
+		}
+		ctx.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":    "leader changed successfully",
+		"shard_id":   shardID,
+		"new_leader": req.NodeID,
+	})
 }
 
 // MovePartitionHandler Moves a partition

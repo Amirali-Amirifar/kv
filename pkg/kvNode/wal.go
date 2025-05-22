@@ -2,68 +2,79 @@ package kvNode
 
 import (
 	"sync"
-	"time"
 )
 
-type WAL struct {
-	ShardKey int // id of partition
-	mu       sync.Mutex
-	records  []WALRecord
-	nextSeq  int64
+type WALRecord struct {
+	Operation string
+	Key       string
+	Value     string
+	Seq       int64
 }
 
-type WALRecord struct {
-	Op    string // "SET" or "DELETE"
-	Key   string
-	Value string // optional for DELETE
-	Seq   int64  // auto-incremented
-	Time  time.Time
+type WAL struct {
+	ShardKey int
+	Records  []WALRecord
+	mu       sync.RWMutex
+	seq      int64
 }
 
 func NewWAL(shardKey int) *WAL {
 	return &WAL{
 		ShardKey: shardKey,
-		records:  make([]WALRecord, 0),
-		nextSeq:  1, // or 0, depending on your design
+		Records:  make([]WALRecord, 0),
+		seq:      0,
 	}
 }
 
-func (w *WAL) Append(op, key, value string) WALRecord {
+func (w *WAL) Append(op, key, value string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	rec := WALRecord{
-		Op:    op,
-		Key:   key,
-		Value: value,
-		Seq:   w.nextSeq,
-		Time:  time.Now(),
+
+	w.seq++
+	record := WALRecord{
+		Operation: op,
+		Key:       key,
+		Value:     value,
+		Seq:       w.seq,
 	}
-	w.records = append(w.records, rec)
-	w.nextSeq++
-	return rec
+	w.Records = append(w.Records, record)
+}
+
+func (w *WAL) GetLastSeq() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.seq
 }
 
 func (w *WAL) GetSince(seq int64) []WALRecord {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	var res []WALRecord
-	for _, r := range w.records {
-		if r.Seq > seq {
-			res = append(res, r)
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if seq >= w.seq {
+		return nil
+	}
+
+	// Find the first record with sequence number greater than seq
+	start := 0
+	for i, record := range w.Records {
+		if record.Seq > seq {
+			start = i
+			break
 		}
 	}
-	return res
+
+	return w.Records[start:]
 }
 
 func (w *WAL) ClearUntil(seq int64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var idx int
-	for i, r := range w.records {
+	for i, r := range w.Records {
 		if r.Seq > seq {
 			break
 		}
 		idx = i + 1
 	}
-	w.records = w.records[idx:]
+	w.Records = w.Records[idx:]
 }

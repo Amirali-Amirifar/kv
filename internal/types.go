@@ -26,3 +26,10 @@ const (
 	NodeTypeLoadBalancer NodeType = "LOAD_BALANCER"
 	NodeTypeClient       NodeType = "CLIENT"
 )
+
+type WALRecord struct {
+	Operation string `json:"operation"`
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	Seq       int64  `json:"seq"`
+}
