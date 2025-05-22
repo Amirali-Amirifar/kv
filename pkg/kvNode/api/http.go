@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -16,7 +17,7 @@ type KvService interface {
 	Set(key, value string) error
 	Del(key string) error
 	GetLastSeq() int64
-	BecomeLeader() error
+	UpdateNodeState(state internal.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 }
 
@@ -70,8 +71,7 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/del", s.handleDel)
 	s.router.POST("/health", s.handleHealth)
 	s.router.GET("/last-seq", s.handleLastSeq)
-	s.router.POST("/become-leader", s.handleBecomeLeader)
-	s.router.POST("/become-follower", s.handleBecomeLeader) // TODO: implement
+	s.router.POST("/update-state", s.handleUpdateState)
 	s.router.GET("/wal", s.handleGetWAL)
 }
 
@@ -133,8 +133,14 @@ func (s *HTTPServer) handleLastSeq(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"last_seq": lastSeq})
 }
 
-func (s *HTTPServer) handleBecomeLeader(c *gin.Context) {
-	if err := s.svc.BecomeLeader(); err != nil {
+func (s *HTTPServer) handleUpdateState(c *gin.Context) {
+	var req UpdateStateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := s.svc.UpdateNodeState(req.State, req.LeaderID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

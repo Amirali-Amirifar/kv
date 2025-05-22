@@ -5,4 +5,5 @@ type NodeState struct {
 	IsMaster   bool
 	ShardKey   int
 	LastWALSeq int64
+	LeaderID   int
 }

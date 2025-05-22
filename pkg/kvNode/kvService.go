@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/sirupsen/logrus"
 )
@@ -81,25 +82,40 @@ func (k *Service) GetLastSeq() int64 {
 	return k.wal.GetLastSeq()
 }
 
-func (k *Service) BecomeLeader() error {
+func (k *Service) UpdateNodeState(state internal.StoreNodeType, leaderID int) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	if k.state.IsMaster {
-		return errors.New("already a leader")
+	if state == internal.NodeTypeMaster {
+		if k.state.IsMaster {
+			return errors.New("already a leader")
+		}
+
+		// Initialize WAL if not exists
+		if k.wal == nil {
+			k.wal = NewWAL(k.state.ShardKey)
+		}
+
+		// Update state
+		k.state.IsMaster = true
+
+		logrus.WithFields(logrus.Fields{
+			"shardKey": k.state.ShardKey,
+		}).Info("Node became leader")
+	} else if state == internal.NodeTypeFollower {
+		if !k.state.IsMaster {
+			return errors.New("already a follower")
+		}
+
+		// Update state
+		k.state.IsMaster = false
+		k.state.LeaderID = leaderID
+
+		logrus.WithFields(logrus.Fields{
+			"shardKey": k.state.ShardKey,
+			"leaderID": leaderID,
+		}).Info("Node became follower")
 	}
-
-	// Initialize WAL if not exists
-	if k.wal == nil {
-		k.wal = NewWAL(k.state.ShardKey)
-	}
-
-	// Update state
-	k.state.IsMaster = true
-
-	logrus.WithFields(logrus.Fields{
-		"shardKey": k.state.ShardKey,
-	}).Info("Node became leader")
 
 	return nil
 }
