@@ -1,5 +1,7 @@
 package internal
 
+import "github.com/Amirali-Amirifar/kv/internal"
+
 type NodeStatus string
 
 const (
@@ -26,3 +28,14 @@ const (
 	NodeTypeLoadBalancer NodeType = "LOAD_BALANCER"
 	NodeTypeClient       NodeType = "CLIENT"
 )
+
+type ShardInfo interface {
+	GetMaster() NodeInfo
+	GetFollowers() []NodeInfo
+}
+
+type NodeInfo interface {
+	GetID() int
+	GetAddress() (string, int)
+	GetStatus() internal.NodeStatus
+}

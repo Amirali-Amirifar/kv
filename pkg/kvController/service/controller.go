@@ -43,50 +43,55 @@ func (c *KvController) CheckNodesHealth() {
 	c.HealthManager.checkNodes()
 }
 
-func (c *KvController) ChangePartitionLeader(shardID int, targetNodeID int) error {
+func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	shardInfo, exists := c.NodeManager.GetShardInfo(shardID)
 	if !exists {
 		return fmt.Errorf("shard %d not found", shardID)
 	}
+
+	var isFollower bool
+	for _, f := range shardInfo.GetFollowers() {
+		if f.GetID() == targetNodeID && f.GetStatus() == internal.NodeStatusActive {
+			isFollower = true
+			break
+		}
+	}
+	if !isFollower {
+		return fmt.Errorf("target node is not an active follower of this shard")
+	}
+
 	targetNode, err := c.NodeManager.GetNodeInfo(targetNodeID)
-	if err != nil {
-		return fmt.Errorf("target node not found: %v", err)
+	if err != nil || targetNode.Status != internal.NodeStatusActive {
+		return fmt.Errorf("invalid or inactive target node")
 	}
-	if targetNode.Status != internal.NodeStatusActive {
-		return fmt.Errorf("target node is not active")
-	}
+
+	oldLeaderID := shardInfo.GetMaster().GetID()
+
+	// Update master
 	if err := c.NodeManager.UpdateShardMaster(shardID, targetNodeID); err != nil {
 		return err
 	}
+
 	if err := c.HealthManager.notifyNewLeader(&targetNode); err != nil {
 		return fmt.Errorf("failed to notify new leader: %v", err)
 	}
-	followers := make([]*NodeInfo, 0)
+
+	var followers []*NodeInfo
 	for _, f := range shardInfo.GetFollowers() {
 		if node, err := c.NodeManager.GetNodeInfo(f.GetID()); err == nil {
 			followers = append(followers, &node)
 		}
 	}
+
 	if err := c.HealthManager.notifyFollowers(followers, &targetNode); err != nil {
 		logrus.WithError(err).Warn("Failed to notify some followers about leader change")
 	}
 
-	return nil
-}
+	logrus.WithFields(logrus.Fields{
+		"shard_id":   shardID,
+		"old_leader": oldLeaderID,
+		"new_leader": targetNodeID,
+	}).Info("Shard leader changed successfully")
 
-func (c *KvController) GetNodeManager() interface {
-	GetShardInfo(shardID int) (interface {
-		GetMaster() interface {
-			GetID() int
-			GetAddress() (string, int)
-			GetStatus() internal.NodeStatus
-		}
-		GetFollowers() []interface {
-			GetID() int
-			GetAddress() (string, int)
-			GetStatus() internal.NodeStatus
-		}
-	}, bool)
-} {
-	return c.NodeManager
+	return nil
 }

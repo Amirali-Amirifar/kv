@@ -72,6 +72,7 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/health", s.handleHealth)
 	s.router.GET("/last-seq", s.handleLastSeq)
 	s.router.POST("/become-leader", s.handleBecomeLeader)
+	s.router.POST("/become-follower", s.handleBecomeLeader) // TODO: implement
 	s.router.GET("/wal", s.handleGetWAL)
 }
 

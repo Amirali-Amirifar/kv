@@ -57,10 +57,6 @@ func (hm *HealthManager) checkNodes() {
 			hm.handleNodeFailure(node)
 		}
 	}
-
-	// Check for failed nodes that have timed out
-	hm.nodeManager.mutex.Lock()
-	defer hm.nodeManager.mutex.Unlock()
 }
 
 func (hm *HealthManager) checkNode(node NodeInfo) error {
