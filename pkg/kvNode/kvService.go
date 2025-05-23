@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-  "github.com/Amirali-Amirifar/kv/internal/types"
 	"github.com/Amirali-Amirifar/kv/internal/config"
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"github.com/sirupsen/logrus"
 )
 
