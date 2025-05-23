@@ -2,11 +2,11 @@ package service
 
 import (
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 )
@@ -41,9 +41,9 @@ func (nm *NodeManager) initializeNodes() {
 		nodes = append(nodes, &interfaces.NodeInfo{
 			ID:            i,
 			ShardKey:      i % nm.partitions,
-			Status:        internal.NodeStatusUnregistered,
+			Status:        types.NodeStatusUnregistered,
 			Address:       net.TCPAddr{},
-			StoreNodeType: internal.NodeTypeUnknown,
+			StoreNodeType: types.NodeTypeUnknown,
 		})
 	}
 	nm.Nodes = nodes
@@ -55,7 +55,7 @@ func (nm *NodeManager) initializeNodes() {
 
 		if shardInfo, exists := nm.ShardMap[shardKey]; !exists {
 			// First node for this shard: make it the leader
-			node.StoreNodeType = internal.NodeTypeMaster
+			node.StoreNodeType = types.NodeTypeMaster
 			nm.ShardMap[shardKey] = &interfaces.ShardInfo{
 				ShardKey:  shardKey,
 				Master:    node,
@@ -63,7 +63,7 @@ func (nm *NodeManager) initializeNodes() {
 			}
 		} else {
 			// Next nodes are replicas
-			node.StoreNodeType = internal.NodeTypeFollower
+			node.StoreNodeType = types.NodeTypeFollower
 			shardInfo.Followers = append(shardInfo.Followers, node)
 		}
 	}
@@ -89,29 +89,29 @@ func (nm *NodeManager) RegisterNode(address string, port int) error {
 
 	for _, node := range nm.Nodes {
 		if node.Address.IP.Equal(addr.IP) && node.Address.Port == addr.Port {
-			if node.Status == internal.NodeStatusActive {
+			if node.Status == types.NodeStatusActive {
 				return fmt.Errorf("node %s:%d is already registered.", address, port)
 			}
-			node.Status = internal.NodeStatusSyncing
+			node.Status = types.NodeStatusSyncing
 			// TODO: Start syncing data from master.
 			return nil
 		}
 	}
 	for _, node := range nm.Nodes {
-		if node.StoreNodeType == internal.NodeTypeFollower && node.Status == internal.NodeStatusFailed {
+		if node.StoreNodeType == types.NodeTypeFollower && node.Status == types.NodeStatusFailed {
 			node.Address = addr
-			node.Status = internal.NodeStatusSyncing
+			node.Status = types.NodeStatusSyncing
 			return nil
 		}
 	}
 	for _, node := range nm.Nodes {
-		if node.Status == internal.NodeStatusUnregistered {
+		if node.Status == types.NodeStatusUnregistered {
 			node.Address = addr
-			node.Status = internal.NodeStatusSyncing
+			node.Status = types.NodeStatusSyncing
 			return nil
 		}
 	}
-	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full.", address, port)
+	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full", address, port)
 }
 
 func (nm *NodeManager) GetNodeInfo(nodeID int) (interfaces.NodeInfo, error) {
@@ -128,9 +128,9 @@ func (nm *NodeManager) GetActiveNodes() []interfaces.NodeInfo {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
-	active := []interfaces.NodeInfo{}
+	var active []interfaces.NodeInfo
 	for _, node := range nm.Nodes {
-		if node.Status == internal.NodeStatusActive {
+		if node.Status == types.NodeStatusActive {
 			active = append(active, *node)
 		}
 	}
@@ -174,7 +174,7 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 	// Update the shard's master
 	oldMaster := shardInfo.Master
 	shardInfo.Master = targetNode
-	targetNode.StoreNodeType = internal.NodeTypeMaster
+	targetNode.StoreNodeType = types.NodeTypeMaster
 
 	// Remove the new leader from followers list
 	newFollowers := make([]*interfaces.NodeInfo, 0)
@@ -187,7 +187,7 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 
 	// Add the old master to followers list if it exists
 	if oldMaster != nil {
-		oldMaster.StoreNodeType = internal.NodeTypeFollower
+		oldMaster.StoreNodeType = types.NodeTypeFollower
 		shardInfo.Followers = append(shardInfo.Followers, oldMaster)
 	}
 

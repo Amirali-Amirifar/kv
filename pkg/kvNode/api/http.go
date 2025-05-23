@@ -2,11 +2,12 @@ package api
 
 import (
 	"bytes"
+	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/api"
 	"io"
 	"net/http"
 	"strconv"
 
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ type KvService interface {
 	Set(key, value string) error
 	Del(key string) error
 	GetLastSeq() int64
-	UpdateNodeState(state internal.StoreNodeType, leaderID int) error
+	UpdateNodeState(state types.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 	UpdateFollowerProgress(followerID int, seq int64)
 }
@@ -76,7 +77,7 @@ func (s *HTTPServer) registerRoutes() {
 
 // handleGet processes GET requests
 func (s *HTTPServer) handleGet(c *gin.Context) {
-	var req GetRequest
+	var req api.GetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -88,12 +89,12 @@ func (s *HTTPServer) handleGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, GetResponse{Value: val})
+	c.JSON(http.StatusOK, api.GetResponse{Value: val})
 }
 
 // handleSet processes SET requests
 func (s *HTTPServer) handleSet(c *gin.Context) {
-	var req SetRequest
+	var req api.SetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -104,12 +105,12 @@ func (s *HTTPServer) handleSet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SetResponse{})
+	c.JSON(http.StatusOK, api.SetResponse{})
 }
 
 // handleDel processes DEL requests
 func (s *HTTPServer) handleDel(c *gin.Context) {
-	var req DelRequest
+	var req api.DelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -120,7 +121,7 @@ func (s *HTTPServer) handleDel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, DelResponse{})
+	c.JSON(http.StatusOK, api.DelResponse{})
 }
 
 func (s *HTTPServer) handleHealth(c *gin.Context) {

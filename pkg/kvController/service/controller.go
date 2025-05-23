@@ -2,8 +2,8 @@ package service
 
 import (
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/types"
 
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/api"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
@@ -52,7 +52,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 
 	var isFollower bool
 	for _, f := range shardInfo.GetFollowers() {
-		if f.GetID() == targetNodeID && f.GetStatus() == internal.NodeStatusActive {
+		if f.GetID() == targetNodeID && f.GetStatus() == types.NodeStatusActive {
 			isFollower = true
 			break
 		}
@@ -62,7 +62,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	}
 
 	targetNode, err := c.NodeManager.GetNodeInfo(targetNodeID)
-	if err != nil || targetNode.Status != internal.NodeStatusActive {
+	if err != nil || targetNode.Status != types.NodeStatusActive {
 		return fmt.Errorf("invalid or inactive target node")
 	}
 
