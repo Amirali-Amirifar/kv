@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"net/http"
 	"time"
 
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/sirupsen/logrus"
@@ -82,10 +82,10 @@ func (hm *HealthManager) handleNodeFailure(node interfaces.NodeInfo) {
 
 	n := hm.nodeManager.Nodes[node.ID]
 	if n != nil {
-		n.Status = internal.NodeStatusFailed
+		n.Status = types.NodeStatusFailed
 
 		// If this was a master node, we need to elect a new leader
-		if n.StoreNodeType == internal.NodeTypeMaster {
+		if n.StoreNodeType == types.NodeTypeMaster {
 			hm.electNewLeader(n.ShardKey)
 		}
 	}
@@ -104,7 +104,7 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 
 	// Check all followers
 	for _, follower := range shardInfo.Followers {
-		if follower.Status != internal.NodeStatusActive {
+		if follower.Status != types.NodeStatusActive {
 			continue
 		}
 
@@ -128,7 +128,7 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 
 	// Update the shard's master
 	shardInfo.Master = newLeader
-	newLeader.StoreNodeType = internal.NodeTypeMaster
+	newLeader.StoreNodeType = types.NodeTypeMaster
 
 	// Remove the new leader from followers list
 	newFollowers := make([]*interfaces.NodeInfo, 0)
@@ -156,11 +156,11 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}).Info("New leader elected")
 }
 
-func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state internal.StoreNodeType, leaderID int) error {
+func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state types.StoreNodeType, leaderID int) error {
 	client := &http.Client{Timeout: hm.timeout}
 	stateUpdate := struct {
-		State    internal.StoreNodeType `json:"state"`
-		LeaderID int                    `json:"leader_id"`
+		State    types.StoreNodeType `json:"state"`
+		LeaderID int                 `json:"leader_id"`
 	}{
 		State:    state,
 		LeaderID: leaderID,
@@ -189,7 +189,7 @@ func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state intern
 }
 
 func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
-	return hm.updateNodeState(node, internal.NodeTypeMaster, node.ID)
+	return hm.updateNodeState(node, types.NodeTypeMaster, node.ID)
 }
 
 func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
@@ -198,7 +198,7 @@ func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLe
 		if follower.ID == newLeader.ID {
 			continue // Skip the new leader
 		}
-		if err := hm.updateNodeState(follower, internal.NodeTypeFollower, newLeader.ID); err != nil {
+		if err := hm.updateNodeState(follower, types.NodeTypeFollower, newLeader.ID); err != nil {
 			logrus.WithError(err).WithField("follower", follower.ID).Warn("Failed to notify follower about leader change")
 			lastErr = err
 		}

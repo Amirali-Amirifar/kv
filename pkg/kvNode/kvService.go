@@ -3,9 +3,9 @@ package kvNode
 import (
 	"errors"
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"sync"
 
-	"github.com/Amirali-Amirifar/kv/internal"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/sirupsen/logrus"
 )
@@ -82,11 +82,11 @@ func (k *Service) GetLastSeq() int64 {
 	return k.wal.GetLastSeq()
 }
 
-func (k *Service) UpdateNodeState(state internal.StoreNodeType, leaderID int) error {
+func (k *Service) UpdateNodeState(state types.StoreNodeType, leaderID int) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	if state == internal.NodeTypeMaster {
+	if state == types.NodeTypeMaster {
 		if k.state.IsMaster {
 			return errors.New("already a leader")
 		}
@@ -102,7 +102,7 @@ func (k *Service) UpdateNodeState(state internal.StoreNodeType, leaderID int) er
 		logrus.WithFields(logrus.Fields{
 			"shardKey": k.state.ShardKey,
 		}).Info("Node became leader")
-	} else if state == internal.NodeTypeFollower {
+	} else if state == types.NodeTypeFollower {
 		if !k.state.IsMaster {
 			return errors.New("already a follower")
 		}

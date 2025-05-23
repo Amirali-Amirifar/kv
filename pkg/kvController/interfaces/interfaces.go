@@ -1,17 +1,16 @@
 package interfaces
 
 import (
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"net"
-
-	"github.com/Amirali-Amirifar/kv/internal"
 )
 
 type NodeInfo struct {
 	ID            int
 	ShardKey      int
-	Status        internal.NodeStatus
+	Status        types.NodeStatus
 	Address       net.TCPAddr
-	StoreNodeType internal.StoreNodeType
+	StoreNodeType types.StoreNodeType
 }
 
 func (n *NodeInfo) GetID() int {
@@ -22,7 +21,7 @@ func (n *NodeInfo) GetAddress() (string, int) {
 	return n.Address.IP.String(), n.Address.Port
 }
 
-func (n *NodeInfo) GetStatus() internal.NodeStatus {
+func (n *NodeInfo) GetStatus() types.NodeStatus {
 	return n.Status
 }
 
@@ -47,7 +46,7 @@ func (s *ShardInfo) GetFollowers() []NodeInterface {
 type NodeInterface interface {
 	GetID() int
 	GetAddress() (string, int)
-	GetStatus() internal.NodeStatus
+	GetStatus() types.NodeStatus
 }
 
 type ShardInterface interface {
