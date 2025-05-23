@@ -1,9 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 // ControllerRouteHandler interface to decouple route definitions from implementation
@@ -20,6 +21,7 @@ type ControllerRouteHandler interface {
 	MovePartitionHandler(ctx *gin.Context)
 
 	NodeRegisterHandler(ctx *gin.Context)
+	GetNodeInfoHandler(ctx *gin.Context)
 }
 
 // SetupRouter initializes Gin router with routes bound to provided handlers
@@ -34,6 +36,7 @@ func SetupRouter(h ControllerRouteHandler) *gin.Engine {
 		// Node management
 		admin.POST("/nodes", h.AddNodeHandler)
 		admin.DELETE("/nodes/:id", h.RemoveNodeHandler)
+		admin.GET("/nodes/:id", h.GetNodeInfoHandler)
 
 		// Partition management
 		admin.POST("/partitions/increase", h.IncreasePartitionsHandler)

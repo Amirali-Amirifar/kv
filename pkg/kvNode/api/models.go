@@ -27,3 +27,8 @@ type UpdateStateRequest struct {
 	State    internal.StoreNodeType `json:"state"`
 	LeaderID int                    `json:"leader_id"`
 }
+
+type WALProgressRequest struct {
+	FollowerID int   `json:"follower_id"`
+	Seq        int64 `json:"seq"`
+}
