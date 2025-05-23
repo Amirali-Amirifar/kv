@@ -3,8 +3,8 @@ Kv is a distributed key-value database, with high availability and eventual cons
 
 ## Using the client with a single node setup
 ```sh 
-go run ./cmd/kvNode 
-go run ./cmd/kvClient http://localhost:8081
+$ go run ./cmd/kvNode 
+$ go run ./cmd/kvClient http://localhost:8081
 KV Database Client
 Successfully connected to host http://localhost:8081
 
