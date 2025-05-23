@@ -37,7 +37,7 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./controller_config.yaml", "Path to config file")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./config/controller_config.yaml", "Path to config file")
 	//rootCmd.MarkPersistentFlagRequired("config") // <-- this line makes it mandatory
 
 	if err := rootCmd.Execute(); err != nil {
