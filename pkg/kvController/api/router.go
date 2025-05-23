@@ -22,6 +22,7 @@ type ControllerRouteHandler interface {
 
 	NodeRegisterHandler(ctx *gin.Context)
 	GetNodeInfoHandler(ctx *gin.Context)
+	UpdateNodeStatusHandler(ctx *gin.Context)
 }
 
 // SetupRouter initializes Gin router with routes bound to provided handlers
@@ -48,6 +49,7 @@ func SetupRouter(h ControllerRouteHandler) *gin.Engine {
 	internal := router.Group("/internal")
 	{
 		internal.POST("/nodes/register", h.NodeRegisterHandler)
+		internal.POST("/nodes/:id/status", h.UpdateNodeStatusHandler)
 	}
 	log.Println("Controller router setup complete, new nodes can connect via /internal/nodes/register")
 
