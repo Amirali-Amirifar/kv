@@ -2,11 +2,13 @@ package api
 
 import (
 	"bytes"
-	"github.com/Amirali-Amirifar/kv/internal/types/api"
-	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/Amirali-Amirifar/kv/internal/types/api"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/gin-gonic/gin"
@@ -21,6 +23,7 @@ type KvService interface {
 	UpdateNodeState(state cluster.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 	UpdateFollowerProgress(followerID int, seq int64)
+	CreateSnapshot() []kvNode.SnapshotEntry
 }
 
 type HTTPServer struct {
@@ -72,6 +75,8 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/update-state", s.handleUpdateState)
 	s.router.GET("/wal/get-since", s.handleGetWALSince)
 	s.router.POST("/wal/progress", s.handleWALProgress)
+	s.router.GET("/snapshot", s.handleSnapshot)
+
 }
 
 // handleGet processes GET requests
@@ -169,4 +174,16 @@ func (s *HTTPServer) handleWALProgress(c *gin.Context) {
 
 	s.svc.UpdateFollowerProgress(req.FollowerID, req.Seq)
 	c.Status(http.StatusOK)
+}
+
+func (s *HTTPServer) handleSnapshot(c *gin.Context) {
+	c.Stream(func(w io.Writer) bool {
+		entries := s.svc.CreateSnapshot()
+		for _, entry := range entries {
+			data, _ := json.Marshal(entry)
+			c.Writer.Write(data)
+			c.Writer.Write([]byte("\n"))
+		}
+		return false // stop after one pass
+	})
 }

@@ -108,6 +108,11 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	return nil
 }
 
+func (c *KvController) UpdateNodeStatus(nodeID int, nodeStatus cluster.NodeStatus) error {
+	err := c.GetNodeManager().UpdateNodeStatus(nodeID, nodeStatus)
+	return err
+}
+
 func (c *KvController) GetClusterDetails() []*cluster.NodeInfo {
 	// Get all nodes from NodeManager
 	allNodes := c.NodeManager.Nodes

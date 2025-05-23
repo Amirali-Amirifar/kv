@@ -1,15 +1,17 @@
 package kvNode
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/sirupsen/logrus"
@@ -111,8 +113,34 @@ func (k *Service) RegisterWithController() error {
 		k.state.IsMaster = true
 	} else {
 		k.state.IsMaster = false
+		k.state.LeaderID = nodeInfo.LeaderID
 		k.state.MasterAddress = nodeInfo.LeaderAddress.IP
 		k.state.MasterPort = nodeInfo.LeaderAddress.Port
+
+		// Download snapshot from leader
+		if _, err := k.DownloadSnapshotFromLeader(); err != nil {
+			return fmt.Errorf("failed to download snapshot from leader: %v", err)
+		}
+
+		statusReq := struct {
+			Status cluster.NodeStatus `json:"status"`
+		}{
+			Status: cluster.NodeStatusActive,
+		}
+		body, err := json.Marshal(statusReq)
+		if err != nil {
+			return fmt.Errorf("failed to marshal status update: %v", err)
+		}
+
+		resp, err := k.client.Post(
+			fmt.Sprintf("http://%s:%d/internal/nodes/%d/status", k.config.Controller.Host, k.config.Controller.Port, k.state.NodeID),
+			"application/json",
+			bytes.NewBuffer(body),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update node status: %v", err)
+		}
+		resp.Body.Close()
 	}
 
 	return nil
@@ -339,4 +367,53 @@ func (k *Service) UpdateFollowerProgress(followerID int, seq int64) {
 	if k.wal != nil {
 		k.wal.UpdateFollowerProgress(followerID, seq)
 	}
+}
+
+func (k *Service) CreateSnapshot() []SnapshotEntry {
+	var snapshot []SnapshotEntry
+	for key, value := range k.store.data {
+		snapshot = append(snapshot, SnapshotEntry{
+			Key:   key,
+			Value: value,
+		})
+	}
+	return snapshot
+}
+
+func (k *Service) DownloadSnapshotFromLeader() (int64, error) {
+	leaderURL := fmt.Sprintf("http://%s:%d", k.state.MasterAddress, k.state.MasterPort)
+
+	seqResp, err := http.Get(leaderURL + "/last-seq")
+	if err != nil {
+		return 0, err
+	}
+	defer seqResp.Body.Close()
+
+	var seqInfo struct {
+		LastSeq int64 `json:"last_seq"`
+	}
+	if err := json.NewDecoder(seqResp.Body).Decode(&seqInfo); err != nil {
+		return 0, err
+	}
+
+	resp, err := http.Get(leaderURL + "/snapshot")
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var entry SnapshotEntry
+		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+			return 0, err
+		}
+		k.Set(entry.Key, entry.Value)
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+
+	k.state.LastWALSeq = seqInfo.LastSeq
+	return seqInfo.LastSeq, nil
 }

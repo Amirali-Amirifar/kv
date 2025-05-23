@@ -170,3 +170,26 @@ func (k *KvRouteHandler) GetClusterHandler(ctx *gin.Context) {
 		"shards": shardMap,
 	})
 }
+
+func (k *KvRouteHandler) UpdateNodeStatusHandler(ctx *gin.Context) {
+	nodeID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid node ID"})
+		return
+	}
+
+	var req struct {
+		Status cluster.NodeStatus `json:"status"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if err := k.controller.UpdateNodeStatus(nodeID, req.Status); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusOK)
+}

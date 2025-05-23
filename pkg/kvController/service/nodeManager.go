@@ -2,10 +2,11 @@ package service
 
 import (
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
 )
@@ -190,5 +191,15 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 		shardInfo.Followers = append(shardInfo.Followers, oldMaster)
 	}
 
+	return nil
+}
+
+func (nm *NodeManager) UpdateNodeStatus(nodeID int, status cluster.NodeStatus) error {
+	node, err := nm.GetNodeInfo(nodeID)
+	if err != nil {
+		return err
+	}
+	node.Status = status
+	nm.Nodes[nodeID] = &node
 	return nil
 }

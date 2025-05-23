@@ -9,6 +9,7 @@ type NodeManagerInterface interface {
 	GetNodeInfo(nodeID int) (cluster.NodeInfo, error)
 	RegisterNode(address string, port int) (*cluster.NodeInfo, error)
 	UpdateShardMaster(shardID int, masterID int) error
+	UpdateNodeStatus(nodeID int, status cluster.NodeStatus) error
 }
 
 type KvControllerInterface interface {
@@ -16,4 +17,5 @@ type KvControllerInterface interface {
 	ChangePartitionLeader(shardID int, nodeID int) error
 	GetNodeManager() NodeManagerInterface
 	GetClusterDetails() []*cluster.NodeInfo
+	UpdateNodeStatus(nodeID int, status cluster.NodeStatus) error
 }
