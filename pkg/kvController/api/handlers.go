@@ -149,6 +149,28 @@ func (k *KvRouteHandler) GetNodeInfoHandler(ctx *gin.Context) {
 	})
 }
 
+func (k *KvRouteHandler) GetClusterHandler(ctx *gin.Context) {
+	nodes := k.controller.GetClusterDetails()
+	shardMap := make(map[int][]gin.H)
+	for _, node := range nodes {
+		nodeInfo := gin.H{
+			"id":        node.ID,
+			"shard_key": node.ShardKey,
+			"status":    node.Status,
+			"node_type": node.StoreNodeType,
+			"leader_id": node.LeaderID,
+			"address": gin.H{
+				"ip":   node.Address.IP.String(),
+				"port": node.Address.Port,
+			},
+		}
+		shardMap[node.ShardKey] = append(shardMap[node.ShardKey], nodeInfo)
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"shards": shardMap,
+	})
+}
+
 func (k *KvRouteHandler) UpdateNodeStatusHandler(ctx *gin.Context) {
 	nodeID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {

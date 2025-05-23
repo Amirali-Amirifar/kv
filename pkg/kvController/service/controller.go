@@ -113,6 +113,16 @@ func (c *KvController) UpdateNodeStatus(nodeID int, nodeStatus cluster.NodeStatu
 	return err
 }
 
+func (c *KvController) GetClusterDetails() []*cluster.NodeInfo {
+	// Get all nodes from NodeManager
+	allNodes := c.NodeManager.Nodes
+	nodes := make([]*cluster.NodeInfo, len(allNodes))
+	for i, node := range allNodes {
+		nodes[i] = node
+	}
+	return nodes
+}
+
 func (c *KvController) GetNodeManager() interfaces.NodeManagerInterface {
 	return c.NodeManager
 }

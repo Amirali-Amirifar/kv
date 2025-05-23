@@ -23,6 +23,7 @@ type ControllerRouteHandler interface {
 	NodeRegisterHandler(ctx *gin.Context)
 	GetNodeInfoHandler(ctx *gin.Context)
 	UpdateNodeStatusHandler(ctx *gin.Context)
+	GetClusterHandler(ctx *gin.Context)
 }
 
 // SetupRouter initializes Gin router with routes bound to provided handlers
@@ -44,6 +45,7 @@ func SetupRouter(h ControllerRouteHandler) *gin.Engine {
 		admin.POST("/partitions/decrease", h.DecreasePartitionsHandler)
 		admin.POST("/partitions/:id/leader", h.ChangePartitionLeaderHandler)
 		admin.POST("/partitions/:id/move", h.MovePartitionHandler)
+		admin.GET("/cluster", h.GetClusterHandler)
 	}
 
 	internal := router.Group("/internal")
