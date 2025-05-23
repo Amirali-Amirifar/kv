@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+
 	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
@@ -105,6 +106,16 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	}).Info("Shard leader changed successfully")
 
 	return nil
+}
+
+func (c *KvController) GetClusterDetails() []*cluster.NodeInfo {
+	// Get all nodes from NodeManager
+	allNodes := c.NodeManager.Nodes
+	nodes := make([]*cluster.NodeInfo, len(allNodes))
+	for i, node := range allNodes {
+		nodes[i] = node
+	}
+	return nodes
 }
 
 func (c *KvController) GetNodeManager() interfaces.NodeManagerInterface {
