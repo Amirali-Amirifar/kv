@@ -127,10 +127,10 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 
 	// Update the shard's master
 	shardInfo.Master = newLeader
-	newLeader.StoreNodeType = types.NodeTypeMaster
+	newLeader.StoreNodeType = cluster.NodeTypeMaster
 
 	// Remove the new leader from followers list
-	newFollowers := make([]*interfaces.NodeInfo, 0)
+	newFollowers := make([]*cluster.NodeInfo, 0)
 	for _, f := range shardInfo.Followers {
 		if f.ID != newLeader.ID {
 			newFollowers = append(newFollowers, f)

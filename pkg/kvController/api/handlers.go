@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -112,7 +112,7 @@ func (k *KvRouteHandler) NodeRegisterHandler(ctx *gin.Context) {
 	}
 
 	// If this is a follower, get the master's address
-	if nodeInfo.StoreNodeType == types.NodeTypeFollower {
+	if nodeInfo.StoreNodeType == cluster.NodeTypeFollower {
 		masterInfo, err := k.controller.GetNodeManager().GetNodeInfo(nodeInfo.LeaderID)
 		if err != nil {
 			logrus.WithError(err).Error("Failed to get master node info")

@@ -18,7 +18,7 @@ type KvService interface {
 	Set(key, value string) error
 	Del(key string) error
 	GetLastSeq() int64
-	UpdateNodeState(state types.StoreNodeType, leaderID int) error
+	UpdateNodeState(state cluster.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 	UpdateFollowerProgress(followerID int, seq int64)
 }

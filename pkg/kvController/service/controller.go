@@ -45,8 +45,9 @@ func (c *KvController) Start() error {
 	return c.Router.Run(addr)
 }
 
-func (c *KvController) RegisterNode(address string, port int) (*interfaces.NodeInfo, error) {
-	return c.NodeManager.RegisterNode(address, port)
+func (c *KvController) RegisterNode(address string, port int) (node *cluster.NodeInfo, err error) {
+	node, err = c.NodeManager.RegisterNode(address, port)
+	return
 }
 
 func (c *KvController) CheckNodesHealth() {

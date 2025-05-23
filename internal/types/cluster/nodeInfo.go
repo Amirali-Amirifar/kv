@@ -7,6 +7,7 @@ type NodeInfo struct {
 	ShardKey      int
 	Status        NodeStatus
 	Address       net.TCPAddr
+	LeaderID      int
 	StoreNodeType StoreNodeType
 }
 

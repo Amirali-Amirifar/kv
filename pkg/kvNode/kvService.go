@@ -86,11 +86,11 @@ func (k *Service) RegisterWithController() error {
 	}
 
 	var nodeInfo struct {
-		ID            int                 `json:"id"`
-		ShardKey      int                 `json:"shard_key"`
-		Status        types.NodeStatus    `json:"status"`
-		StoreNodeType types.StoreNodeType `json:"store_node_type"`
-		LeaderID      int                 `json:"leader_id"`
+		ID            int                   `json:"id"`
+		ShardKey      int                   `json:"shard_key"`
+		Status        cluster.NodeStatus    `json:"status"`
+		StoreNodeType cluster.StoreNodeType `json:"store_node_type"`
+		LeaderID      int                   `json:"leader_id"`
 		LeaderAddress struct {
 			IP   string `json:"ip"`
 			Port int    `json:"port"`
@@ -107,7 +107,7 @@ func (k *Service) RegisterWithController() error {
 	k.state.LeaderID = nodeInfo.LeaderID
 
 	// Update node type
-	if nodeInfo.StoreNodeType == types.NodeTypeMaster {
+	if nodeInfo.StoreNodeType == cluster.NodeTypeMaster {
 		k.state.IsMaster = true
 	} else {
 		k.state.IsMaster = false

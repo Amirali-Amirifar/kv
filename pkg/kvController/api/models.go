@@ -1,6 +1,8 @@
 package api
 
-import "github.com/Amirali-Amirifar/kv/internal/types"
+import (
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
+)
 
 type NodeRegisterHandlerRequest struct {
 	Ip   string `json:"ip"`
@@ -8,11 +10,11 @@ type NodeRegisterHandlerRequest struct {
 }
 
 type NodeRegisterHandlerResponse struct {
-	ID            int                 `json:"id"`
-	ShardKey      int                 `json:"shard_key"`
-	Status        types.NodeStatus    `json:"status"`
-	StoreNodeType types.StoreNodeType `json:"store_node_type"`
-	LeaderID      int                 `json:"leader_id"`
+	ID            int                   `json:"id"`
+	ShardKey      int                   `json:"shard_key"`
+	Status        cluster.NodeStatus    `json:"status"`
+	StoreNodeType cluster.StoreNodeType `json:"store_node_type"`
+	LeaderID      int                   `json:"leader_id"`
 	LeaderAddress struct {
 		IP   string `json:"ip"`
 		Port int    `json:"port"`
