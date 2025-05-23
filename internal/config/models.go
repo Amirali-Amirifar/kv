@@ -22,6 +22,7 @@ type KvControllerConfig struct {
 }
 
 type KvNodeConfig struct {
-	Address    AddressConfig `mapstructure:"address"`
-	Controller AddressConfig `mapstructure:"controller"`
+	Address     AddressConfig `mapstructure:"address"`
+	Controller  AddressConfig `mapstructure:"controller"`
+	HTTPTimeout int           `mapstructure:"http_timeout_ms"`
 }

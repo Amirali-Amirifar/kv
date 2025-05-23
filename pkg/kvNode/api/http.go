@@ -20,6 +20,7 @@ type KvService interface {
 	GetLastSeq() int64
 	UpdateNodeState(state types.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
+	UpdateFollowerProgress(followerID int, seq int64)
 }
 
 type HTTPServer struct {
@@ -27,7 +28,6 @@ type HTTPServer struct {
 	router *gin.Engine
 }
 
-// NewHTTPServer creates a new HTTP server with the given KV service
 func NewHTTPServer(svc KvService) *HTTPServer {
 	router := gin.Default() // Includes logger and recovery middleware
 	return &HTTPServer{
@@ -36,7 +36,6 @@ func NewHTTPServer(svc KvService) *HTTPServer {
 	}
 }
 
-// Serve starts the HTTP server on the specified port
 func (s *HTTPServer) Serve(port int) error {
 	s.registerRoutes()
 	log.Printf("Listening to connections on HTTP, Port: %d\n", port)
@@ -44,7 +43,6 @@ func (s *HTTPServer) Serve(port int) error {
 	return s.router.Run(":" + strconv.Itoa(port))
 }
 
-// registerRoutes sets up the API endpoints
 func (s *HTTPServer) registerRoutes() {
 	s.router.Use(func(c *gin.Context) {
 		// Read the body
@@ -73,7 +71,8 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/health", s.handleHealth)
 	s.router.GET("/last-seq", s.handleLastSeq)
 	s.router.POST("/update-state", s.handleUpdateState)
-	s.router.GET("/wal", s.handleGetWAL)
+	s.router.GET("/wal/get-since", s.handleGetWALSince)
+	s.router.POST("/wal/progress", s.handleWALProgress)
 }
 
 // handleGet processes GET requests
@@ -148,7 +147,7 @@ func (s *HTTPServer) handleUpdateState(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *HTTPServer) handleGetWAL(c *gin.Context) {
+func (s *HTTPServer) handleGetWALSince(c *gin.Context) {
 	seqStr := c.Query("since")
 	seq, err := strconv.ParseInt(seqStr, 10, 64)
 	if err != nil {
@@ -158,4 +157,15 @@ func (s *HTTPServer) handleGetWAL(c *gin.Context) {
 
 	wal := s.svc.GetWALSince(seq)
 	c.JSON(http.StatusOK, wal)
+}
+
+func (s *HTTPServer) handleWALProgress(c *gin.Context) {
+	var req WALProgressRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.svc.UpdateFollowerProgress(req.FollowerID, req.Seq)
+	c.Status(http.StatusOK)
 }

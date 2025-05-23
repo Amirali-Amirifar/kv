@@ -104,3 +104,27 @@ func (k *KvRouteHandler) NodeRegisterHandler(ctx *gin.Context) {
 
 	ctx.Status(http.StatusOK)
 }
+
+// GetNodeInfoHandler returns information about a specific node
+func (k *KvRouteHandler) GetNodeInfoHandler(ctx *gin.Context) {
+	nodeID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid node ID"})
+		return
+	}
+
+	nodeInfo, err := k.controller.GetNodeManager().GetNodeInfo(nodeID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"id": nodeInfo.ID,
+		"address": gin.H{
+			"ip":   nodeInfo.Address.IP.String(),
+			"port": nodeInfo.Address.Port,
+		},
+		"status": nodeInfo.Status,
+	})
+}

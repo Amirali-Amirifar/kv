@@ -1,11 +1,16 @@
 package kvNode
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"net/http"
+	"sort"
 	"sync"
+	"time"
 
+  "github.com/Amirali-Amirifar/kv/internal/types"
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/sirupsen/logrus"
 )
@@ -16,17 +21,21 @@ type Service struct {
 	store  *Storage
 	wal    *WAL
 	mu     sync.RWMutex
+	client *http.Client
 }
 
 func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
+	timeout := time.Duration(cfg.HTTPTimeout) * time.Millisecond
+
 	svc := &Service{
 		config: cfg,
 		state: NodeState{
 			IsMaster: false,
 			ShardKey: 0,
 		},
-		store: NewNodeStore(),
-		mu:    sync.RWMutex{},
+		store:  NewNodeStore(),
+		mu:     sync.RWMutex{},
+		client: &http.Client{Timeout: timeout},
 	}
 
 	if svc.state.IsMaster {
@@ -37,7 +46,11 @@ func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
 }
 
 func (k *Service) Start() error {
-	panic("implement me")
+	if !k.state.IsMaster {
+		go k.syncWALPeriodically()
+	}
+	return nil
+	// TODO: implement the rest.
 }
 
 func (k *Service) Get(key string) (string, error) {
@@ -90,13 +103,9 @@ func (k *Service) UpdateNodeState(state types.StoreNodeType, leaderID int) error
 		if k.state.IsMaster {
 			return errors.New("already a leader")
 		}
-
-		// Initialize WAL if not exists
 		if k.wal == nil {
 			k.wal = NewWAL(k.state.ShardKey)
 		}
-
-		// Update state
 		k.state.IsMaster = true
 
 		logrus.WithFields(logrus.Fields{
@@ -107,13 +116,36 @@ func (k *Service) UpdateNodeState(state types.StoreNodeType, leaderID int) error
 			return errors.New("already a follower")
 		}
 
-		// Update state
 		k.state.IsMaster = false
 		k.state.LeaderID = leaderID
+		resp, err := k.client.Get(fmt.Sprintf("http://%s:%d/node/%d", k.config.Controller.Host, k.config.Controller.Port, leaderID))
+		if err != nil {
+			return fmt.Errorf("failed to get master node info: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to get master node info: status %d", resp.StatusCode)
+		}
+
+		var nodeInfo struct {
+			Address struct {
+				IP   string `json:"ip"`
+				Port int    `json:"port"`
+			} `json:"address"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&nodeInfo); err != nil {
+			return fmt.Errorf("failed to decode master node info: %v", err)
+		}
+
+		// Update master address and port
+		k.state.MasterAddress = nodeInfo.Address.IP
+		k.state.MasterPort = nodeInfo.Address.Port
 
 		logrus.WithFields(logrus.Fields{
 			"shardKey": k.state.ShardKey,
-			"leaderID": leaderID,
+			"leaderID": k.state.LeaderID,
+			"master":   fmt.Sprintf("%s:%d", k.state.MasterAddress, k.state.MasterPort),
 		}).Info("Node became follower")
 	}
 
@@ -144,4 +176,101 @@ func (k *Service) ApplyWALRecord(record WALRecord) error {
 	}
 
 	return nil
+}
+
+func (k *Service) syncWALPeriodically() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if k.state.IsMaster {
+			if k.wal != nil {
+				minSeq := k.wal.GetMinFollowerSeq()
+				if minSeq > 0 {
+					k.wal.ClearUntil(minSeq)
+				}
+			}
+			return
+		}
+
+		// Get WAL entries from master
+		resp, err := k.client.Get(fmt.Sprintf("http://%s:%d/wal/get-since/?since=%d", k.state.MasterAddress, k.state.MasterPort, k.state.LastWALSeq))
+		if err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"master": fmt.Sprintf("%s:%d", k.state.MasterAddress, k.state.MasterPort),
+				"seq":    k.state.LastWALSeq,
+			}).Error("Failed to fetch WAL entries from master")
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			logrus.WithFields(logrus.Fields{
+				"status": resp.StatusCode,
+				"master": fmt.Sprintf("%s:%d", k.state.MasterAddress, k.state.MasterPort),
+				"seq":    k.state.LastWALSeq,
+			}).Error("Failed to fetch WAL entries from master")
+			continue
+		}
+
+		var records []WALRecord
+		if err := json.NewDecoder(resp.Body).Decode(&records); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"master": fmt.Sprintf("%s:%d", k.state.MasterAddress, k.state.MasterPort),
+				"seq":    k.state.LastWALSeq,
+			}).Error("Failed to decode WAL entries")
+			continue
+		}
+
+		if len(records) == 0 {
+			continue
+		}
+
+		sort.Slice(records, func(i, j int) bool {
+			return records[i].Seq < records[j].Seq
+		})
+
+		for _, record := range records {
+			if record.Seq <= k.state.LastWALSeq {
+				continue
+			}
+
+			if err := k.ApplyWALRecord(record); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"seq":       record.Seq,
+					"operation": record.Operation,
+					"key":       record.Key,
+				}).Error("Failed to apply WAL record")
+				break
+			}
+
+			k.state.LastWALSeq = record.Seq
+
+			// Notify master about our progress
+			progressResp, err := k.client.Post(
+				fmt.Sprintf("http://%s:%d/wal/progress", k.state.MasterAddress, k.state.MasterPort),
+				"application/json",
+				bytes.NewBufferString(fmt.Sprintf(`{"follower_id": %d, "seq": %d}`, k.state.NodeID, record.Seq)),
+			)
+			if err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"seq": record.Seq,
+				}).Error("Failed to notify master about WAL progress")
+				continue
+			}
+			progressResp.Body.Close()
+
+			logrus.WithFields(logrus.Fields{
+				"seq":       record.Seq,
+				"operation": record.Operation,
+				"key":       record.Key,
+			}).Debug("Applied WAL record")
+		}
+	}
+}
+
+func (k *Service) UpdateFollowerProgress(followerID int, seq int64) {
+	if k.wal != nil {
+		k.wal.UpdateFollowerProgress(followerID, seq)
+	}
 }

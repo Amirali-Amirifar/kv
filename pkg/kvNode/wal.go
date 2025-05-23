@@ -12,17 +12,19 @@ type WALRecord struct {
 }
 
 type WAL struct {
-	ShardKey int
-	Records  []WALRecord
-	mu       sync.RWMutex
-	seq      int64
+	ShardKey  int
+	Records   []WALRecord
+	mu        sync.RWMutex
+	seq       int64
+	followers map[int]int64 // Map of follower ID to their last applied sequence
 }
 
 func NewWAL(shardKey int) *WAL {
 	return &WAL{
-		ShardKey: shardKey,
-		Records:  make([]WALRecord, 0),
-		seq:      0,
+		ShardKey:  shardKey,
+		Records:   make([]WALRecord, 0),
+		seq:       0,
+		followers: make(map[int]int64),
 	}
 }
 
@@ -77,4 +79,33 @@ func (w *WAL) ClearUntil(seq int64) {
 		idx = i + 1
 	}
 	w.Records = w.Records[idx:]
+}
+
+func (w *WAL) UpdateFollowerProgress(followerID int, seq int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.followers[followerID] = seq
+}
+
+func (w *WAL) GetMinFollowerSeq() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if len(w.followers) == 0 {
+		return 0
+	}
+
+	minSeq := w.seq
+	for _, seq := range w.followers {
+		if seq < minSeq {
+			minSeq = seq
+		}
+	}
+	return minSeq
+}
+
+func (w *WAL) RemoveFollower(followerID int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.followers, followerID)
 }
