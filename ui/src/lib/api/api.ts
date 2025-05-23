@@ -1,5 +1,7 @@
 // Base API URL - can be configured based on environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+import {config} from "@/lib/config"
+
+const API_BASE_URL = config.API_BASE_URL;
 
 /**
  * Check if the API is running
