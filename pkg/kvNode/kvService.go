@@ -26,6 +26,7 @@ type Service struct {
 
 func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
 	timeout := time.Duration(cfg.HTTPTimeout) * time.Millisecond
+	client := &http.Client{Timeout: timeout}
 
 	svc := &Service{
 		config: cfg,
@@ -35,7 +36,7 @@ func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
 		},
 		store:  NewNodeStore(),
 		mu:     sync.RWMutex{},
-		client: &http.Client{Timeout: timeout},
+		client: client,
 	}
 
 	if svc.state.IsMaster {
@@ -46,11 +47,75 @@ func NewKvNodeService(cfg *config.KvNodeConfig) *Service {
 }
 
 func (k *Service) Start() error {
-	if !k.state.IsMaster {
-		go k.syncWALPeriodically()
+	// Register with controller
+	if err := k.RegisterWithController(); err != nil {
+		return err
 	}
+	// Start WAL
+	go k.syncWALPeriodically()
 	return nil
-	// TODO: implement the rest.
+}
+
+func (k *Service) RegisterWithController() error {
+	// Register with controller
+	registerReq := struct {
+		Ip   string `json:"ip"`
+		Port int    `json:"port"`
+	}{
+		Ip:   k.config.Address.Host,
+		Port: k.config.Address.Port,
+	}
+
+	body, err := json.Marshal(registerReq)
+	if err != nil {
+		return fmt.Errorf("failed to marshal register request: %v", err)
+	}
+
+	resp, err := k.client.Post(
+		fmt.Sprintf("http://%s:%d/internal/nodes/register", k.config.Controller.Host, k.config.Controller.Port),
+		"application/json",
+		bytes.NewBuffer(body),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register with controller: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to register with controller: status %d", resp.StatusCode)
+	}
+
+	var nodeInfo struct {
+		ID            int                 `json:"id"`
+		ShardKey      int                 `json:"shard_key"`
+		Status        types.NodeStatus    `json:"status"`
+		StoreNodeType types.StoreNodeType `json:"store_node_type"`
+		LeaderID      int                 `json:"leader_id"`
+		LeaderAddress struct {
+			IP   string `json:"ip"`
+			Port int    `json:"port"`
+		} `json:"leader_address,omitempty"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&nodeInfo); err != nil {
+		return fmt.Errorf("failed to decode node info: %v", err)
+	}
+
+	// Update node state
+	k.state.NodeID = nodeInfo.ID
+	k.state.ShardKey = nodeInfo.ShardKey
+	k.state.LeaderID = nodeInfo.LeaderID
+
+	// Update node type
+	if nodeInfo.StoreNodeType == types.NodeTypeMaster {
+		k.state.IsMaster = true
+	} else {
+		k.state.IsMaster = false
+		k.state.MasterAddress = nodeInfo.LeaderAddress.IP
+		k.state.MasterPort = nodeInfo.LeaderAddress.Port
+	}
+
+	return nil
 }
 
 func (k *Service) Get(key string) (string, error) {

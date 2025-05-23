@@ -1,12 +1,22 @@
 package api
 
+import "github.com/Amirali-Amirifar/kv/internal/types"
+
 type NodeRegisterHandlerRequest struct {
 	Ip   string `json:"ip"`
 	Port int    `json:"port"`
 }
 
 type NodeRegisterHandlerResponse struct {
-	Error string `json:"error"`
+	ID            int                 `json:"id"`
+	ShardKey      int                 `json:"shard_key"`
+	Status        types.NodeStatus    `json:"status"`
+	StoreNodeType types.StoreNodeType `json:"store_node_type"`
+	LeaderID      int                 `json:"leader_id"`
+	LeaderAddress struct {
+		IP   string `json:"ip"`
+		Port int    `json:"port"`
+	} `json:"leader_address,omitempty"`
 }
 
 type ChangeLeaderRequest struct {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Amirali-Amirifar/kv/internal/types"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -95,14 +96,34 @@ func (k *KvRouteHandler) NodeRegisterHandler(ctx *gin.Context) {
 		return
 	}
 
-	err := k.controller.RegisterNode(req.Ip, req.Port)
+	nodeInfo, err := k.controller.RegisterNode(req.Ip, req.Port)
 	if err != nil {
 		logrus.WithError(err).Errorf("Failed to register node %s:%d", req.Ip, req.Port)
 		ctx.Status(http.StatusConflict)
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	response := NodeRegisterHandlerResponse{
+		ID:            nodeInfo.ID,
+		ShardKey:      nodeInfo.ShardKey,
+		Status:        nodeInfo.Status,
+		StoreNodeType: nodeInfo.StoreNodeType,
+		LeaderID:      nodeInfo.LeaderID,
+	}
+
+	// If this is a follower, get the master's address
+	if nodeInfo.StoreNodeType == types.NodeTypeFollower {
+		masterInfo, err := k.controller.GetNodeManager().GetNodeInfo(nodeInfo.LeaderID)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to get master node info")
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+		response.LeaderAddress.IP = masterInfo.Address.IP.String()
+		response.LeaderAddress.Port = masterInfo.Address.Port
+	}
+
+	ctx.JSON(http.StatusOK, response)
 }
 
 // GetNodeInfoHandler returns information about a specific node
@@ -125,6 +146,5 @@ func (k *KvRouteHandler) GetNodeInfoHandler(ctx *gin.Context) {
 			"ip":   nodeInfo.Address.IP.String(),
 			"port": nodeInfo.Address.Port,
 		},
-		"status": nodeInfo.Status,
 	})
 }

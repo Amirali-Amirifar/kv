@@ -18,7 +18,7 @@ type KvService interface {
 	Set(key, value string) error
 	Del(key string) error
 	GetLastSeq() int64
-	UpdateNodeState(state cluster.StoreNodeType, leaderID int) error
+	UpdateNodeState(state types.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 	UpdateFollowerProgress(followerID int, seq int64)
 }
@@ -39,7 +39,6 @@ func NewHTTPServer(svc KvService) *HTTPServer {
 func (s *HTTPServer) Serve(port int) error {
 	s.registerRoutes()
 	log.Printf("Listening to connections on HTTP, Port: %d\n", port)
-
 	return s.router.Run(":" + strconv.Itoa(port))
 }
 

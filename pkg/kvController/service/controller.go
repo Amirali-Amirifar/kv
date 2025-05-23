@@ -21,7 +21,16 @@ type KvController struct {
 func NewKvController(cfg *config.KvControllerConfig) *KvController {
 	logrus.Infof("Loaded controller config: %#v", cfg)
 
-	controller := &KvController{}
+	controller := &KvController{
+		Config: cfg,
+	}
+
+	// Initialize NodeManager
+	controller.NodeManager = NewNodeManager(cfg.Cluster.Partitions, cfg.Cluster.Replicas, cfg)
+
+	// Initialize HealthManager
+	controller.HealthManager = NewHealthManager(controller.NodeManager, cfg)
+
 	handler := api.NewRouteHandler(controller)
 	router := api.SetupRouter(handler)
 
@@ -36,7 +45,7 @@ func (c *KvController) Start() error {
 	return c.Router.Run(addr)
 }
 
-func (c *KvController) RegisterNode(address string, port int) error {
+func (c *KvController) RegisterNode(address string, port int) (*interfaces.NodeInfo, error) {
 	return c.NodeManager.RegisterNode(address, port)
 }
 
