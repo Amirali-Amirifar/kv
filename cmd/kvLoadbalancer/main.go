@@ -15,7 +15,7 @@ func main() {
 
 	var cfg config.KvLoadBalancerConfig
 
-	config.LoadConfig("config/loadbalancer_config.yaml", "", &cfg)
+	config.LoadConfig("config/loadbalancer_config.yaml", &cfg)
 
 	// Initialize the loadbalancer service
 	svc := kvLoadbalancer.NewLoadBalancerService(&cfg)

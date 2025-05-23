@@ -16,7 +16,7 @@ func runKvController(configPath string) {
 	log.Info("Starting KvController")
 
 	var cfg config.KvControllerConfig
-	config.LoadConfig(configPath, "", &cfg)
+	config.LoadConfig(configPath, &cfg)
 
 	controller := service.NewKvController(&cfg)
 	err := controller.Start()

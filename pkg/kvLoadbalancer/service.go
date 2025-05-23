@@ -143,6 +143,35 @@ func (s *LoadBalancerService) Set(key, value string) error {
 }
 
 func (s *LoadBalancerService) Del(key string) error {
+	s.mu.RLock()
+	shardID := s.calculateShard(key)
+	shardInfo, exists := s.shardNodes[shardID]
+	s.mu.RUnlock()
+
+	if !exists || shardInfo.Master == nil {
+		return fmt.Errorf("no master node available for shard %d", shardID)
+	}
+
+	req := apiTypes.DelRequest{Key: key}
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(
+		fmt.Sprintf("http://%s:%d/del", shardInfo.Master.Address, shardInfo.Master.Port),
+		"application/json",
+		bytes.NewBuffer(reqBody),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("master node returned status %d", resp.StatusCode)
+	}
+
 	return nil
 }
 

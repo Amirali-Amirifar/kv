@@ -14,7 +14,7 @@ import (
 func runKvNode(configPath string) {
 	log.Info("Starting kvNode")
 	var cfg config.KvNodeConfig
-	config.LoadConfig(configPath, "", &cfg)
+	config.LoadConfig(configPath, &cfg)
 	log.Printf("Loaded Config %#v", cfg)
 	service := kvNode.NewKvNodeService(&cfg)
 

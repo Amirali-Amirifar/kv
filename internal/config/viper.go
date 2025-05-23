@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func LoadConfig(configPath string, configName string, out interface{}) {
+func LoadConfig(configPath string, out interface{}) {
 	viper.SetConfigFile(configPath)
 	viper.AutomaticEnv()
 
