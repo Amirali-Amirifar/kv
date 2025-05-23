@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 )
 
 type UpdateStateRequest struct {
-	State    types.StoreNodeType `json:"state"`
-	LeaderID int                 `json:"leader_id"`
+	State    cluster.StoreNodeType `json:"state"`
+	LeaderID int                   `json:"leader_id"`
 }
 
 type WALProgressRequest struct {

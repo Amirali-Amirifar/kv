@@ -2,21 +2,20 @@ package service
 
 import (
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
-	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 )
 
 type NodeManager struct {
 	replicas      int
 	partitions    int
-	Nodes         []*interfaces.NodeInfo
+	Nodes         []*cluster.NodeInfo
 	mutex         sync.Mutex
-	ShardMap      map[int]*interfaces.ShardInfo
+	ShardMap      map[int]*cluster.ShardInfo
 	timeout       time.Duration
 	healthManager *HealthManager
 }
@@ -34,36 +33,36 @@ func NewNodeManager(partitions int, replicas int, cfg *config.KvControllerConfig
 
 func (nm *NodeManager) initializeNodes() {
 	numNodes := nm.partitions * nm.replicas
-	nodes := make([]*interfaces.NodeInfo, 0, numNodes)
+	nodes := make([]*cluster.NodeInfo, 0, numNodes)
 
 	// Step 1: Initialize nodes and assign shard keys
 	for i := 0; i < numNodes; i++ {
-		nodes = append(nodes, &interfaces.NodeInfo{
+		nodes = append(nodes, &cluster.NodeInfo{
 			ID:            i,
 			ShardKey:      i % nm.partitions,
-			Status:        types.NodeStatusUnregistered,
+			Status:        cluster.NodeStatusUnregistered,
 			Address:       net.TCPAddr{},
-			StoreNodeType: types.NodeTypeUnknown,
+			StoreNodeType: cluster.NodeTypeUnknown,
 		})
 	}
 	nm.Nodes = nodes
 
-	nm.ShardMap = make(map[int]*interfaces.ShardInfo)
+	nm.ShardMap = make(map[int]*cluster.ShardInfo)
 
 	for _, node := range nm.Nodes {
 		shardKey := node.ShardKey
 
 		if shardInfo, exists := nm.ShardMap[shardKey]; !exists {
 			// First node for this shard: make it the leader
-			node.StoreNodeType = types.NodeTypeMaster
-			nm.ShardMap[shardKey] = &interfaces.ShardInfo{
+			node.StoreNodeType = cluster.NodeTypeMaster
+			nm.ShardMap[shardKey] = &cluster.ShardInfo{
 				ShardKey:  shardKey,
 				Master:    node,
-				Followers: []*interfaces.NodeInfo{},
+				Followers: []*cluster.NodeInfo{},
 			}
 		} else {
 			// Next nodes are replicas
-			node.StoreNodeType = types.NodeTypeFollower
+			node.StoreNodeType = cluster.NodeTypeFollower
 			shardInfo.Followers = append(shardInfo.Followers, node)
 		}
 	}
@@ -89,64 +88,64 @@ func (nm *NodeManager) RegisterNode(address string, port int) error {
 
 	for _, node := range nm.Nodes {
 		if node.Address.IP.Equal(addr.IP) && node.Address.Port == addr.Port {
-			if node.Status == types.NodeStatusActive {
+			if node.Status == cluster.NodeStatusActive {
 				return fmt.Errorf("node %s:%d is already registered.", address, port)
 			}
-			node.Status = types.NodeStatusSyncing
+			node.Status = cluster.NodeStatusSyncing
 			// TODO: Start syncing data from master.
 			return nil
 		}
 	}
 	for _, node := range nm.Nodes {
-		if node.StoreNodeType == types.NodeTypeFollower && node.Status == types.NodeStatusFailed {
+		if node.StoreNodeType == cluster.NodeTypeFollower && node.Status == cluster.NodeStatusFailed {
 			node.Address = addr
-			node.Status = types.NodeStatusSyncing
+			node.Status = cluster.NodeStatusSyncing
 			return nil
 		}
 	}
 	for _, node := range nm.Nodes {
-		if node.Status == types.NodeStatusUnregistered {
+		if node.Status == cluster.NodeStatusUnregistered {
 			node.Address = addr
-			node.Status = types.NodeStatusSyncing
+			node.Status = cluster.NodeStatusSyncing
 			return nil
 		}
 	}
 	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full", address, port)
 }
 
-func (nm *NodeManager) GetNodeInfo(nodeID int) (interfaces.NodeInfo, error) {
+func (nm *NodeManager) GetNodeInfo(nodeID int) (cluster.NodeInfo, error) {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
 	if nodeID < 0 || nodeID >= len(nm.Nodes) {
-		return interfaces.NodeInfo{}, fmt.Errorf("invalid node ID: %d", nodeID)
+		return cluster.NodeInfo{}, fmt.Errorf("invalid node ID: %d", nodeID)
 	}
 	return *nm.Nodes[nodeID], nil
 }
 
-func (nm *NodeManager) GetActiveNodes() []interfaces.NodeInfo {
+func (nm *NodeManager) GetActiveNodes() []cluster.NodeInfo {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
-	var active []interfaces.NodeInfo
+	var active []cluster.NodeInfo
 	for _, node := range nm.Nodes {
-		if node.Status == types.NodeStatusActive {
+		if node.Status == cluster.NodeStatusActive {
 			active = append(active, *node)
 		}
 	}
 	return active
 }
 
-func (nm *NodeManager) GetShardInfo(shardID int) (interfaces.ShardInterface, bool) {
+func (nm *NodeManager) GetShardInfo(shardID int) (cluster.ShardInfo, bool) {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
 	shardInfo, exists := nm.ShardMap[shardID]
 	if !exists {
-		return nil, false
+		return cluster.ShardInfo{}, false
 	}
 
-	return shardInfo, true
+	return *shardInfo, true
 }
 
 func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
@@ -159,7 +158,7 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 	}
 
 	// Find the target node
-	var targetNode *interfaces.NodeInfo
+	var targetNode *cluster.NodeInfo
 	for _, follower := range shardInfo.Followers {
 		if follower.ID == masterID {
 			targetNode = follower
@@ -174,10 +173,10 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 	// Update the shard's master
 	oldMaster := shardInfo.Master
 	shardInfo.Master = targetNode
-	targetNode.StoreNodeType = types.NodeTypeMaster
+	targetNode.StoreNodeType = cluster.NodeTypeMaster
 
 	// Remove the new leader from followers list
-	newFollowers := make([]*interfaces.NodeInfo, 0)
+	newFollowers := make([]*cluster.NodeInfo, 0)
 	for _, f := range shardInfo.Followers {
 		if f.ID != targetNode.ID {
 			newFollowers = append(newFollowers, f)
@@ -187,7 +186,7 @@ func (nm *NodeManager) UpdateShardMaster(shardID int, masterID int) error {
 
 	// Add the old master to followers list if it exists
 	if oldMaster != nil {
-		oldMaster.StoreNodeType = types.NodeTypeFollower
+		oldMaster.StoreNodeType = cluster.NodeTypeFollower
 		shardInfo.Followers = append(shardInfo.Followers, oldMaster)
 	}
 

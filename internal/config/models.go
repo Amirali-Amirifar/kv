@@ -26,3 +26,8 @@ type KvNodeConfig struct {
 	Controller  AddressConfig `mapstructure:"controller"`
 	HTTPTimeout int           `mapstructure:"http_timeout_ms"`
 }
+
+type KvLoadBalancerConfig struct {
+	Address    AddressConfig `mapstructure:"address"`
+	Controller AddressConfig `mapstructure:"controller"`
+}

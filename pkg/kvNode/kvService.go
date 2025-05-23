@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
-	"github.com/Amirali-Amirifar/kv/internal/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -95,11 +95,11 @@ func (k *Service) GetLastSeq() int64 {
 	return k.wal.GetLastSeq()
 }
 
-func (k *Service) UpdateNodeState(state types.StoreNodeType, leaderID int) error {
+func (k *Service) UpdateNodeState(state cluster.StoreNodeType, leaderID int) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	if state == types.NodeTypeMaster {
+	if state == cluster.NodeTypeMaster {
 		if k.state.IsMaster {
 			return errors.New("already a leader")
 		}
@@ -111,7 +111,7 @@ func (k *Service) UpdateNodeState(state types.StoreNodeType, leaderID int) error
 		logrus.WithFields(logrus.Fields{
 			"shardKey": k.state.ShardKey,
 		}).Info("Node became leader")
-	} else if state == types.NodeTypeFollower {
+	} else if state == cluster.NodeTypeFollower {
 		if !k.state.IsMaster {
 			return errors.New("already a follower")
 		}

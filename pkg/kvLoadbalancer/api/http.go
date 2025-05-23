@@ -3,32 +3,27 @@ package api
 import (
 	"bytes"
 	"github.com/Amirali-Amirifar/kv/internal/types/api"
-	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"io"
 	"net/http"
 	"strconv"
 
-	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
-type KvService interface {
+type Service interface {
 	Get(key string) (string, error)
 	Set(key, value string) error
 	Del(key string) error
-	GetLastSeq() int64
-	UpdateNodeState(state cluster.StoreNodeType, leaderID int) error
-	GetWALSince(seq int64) []kvNode.WALRecord
-	UpdateFollowerProgress(followerID int, seq int64)
+	//UpdateNodeData() error
 }
 
 type HTTPServer struct {
-	svc    KvService
+	svc    Service
 	router *gin.Engine
 }
 
-func NewHTTPServer(svc KvService) *HTTPServer {
+func NewHTTPServer(svc Service) *HTTPServer {
 	router := gin.Default() // Includes logger and recovery middleware
 	return &HTTPServer{
 		svc:    svc,
@@ -69,10 +64,6 @@ func (s *HTTPServer) registerRoutes() {
 	s.router.POST("/set", s.handleSet)
 	s.router.POST("/del", s.handleDel)
 	s.router.POST("/health", s.handleHealth)
-	s.router.GET("/last-seq", s.handleLastSeq)
-	s.router.POST("/update-state", s.handleUpdateState)
-	s.router.GET("/wal/get-since", s.handleGetWALSince)
-	s.router.POST("/wal/progress", s.handleWALProgress)
 }
 
 // handleGet processes GET requests
@@ -83,13 +74,13 @@ func (s *HTTPServer) handleGet(c *gin.Context) {
 		return
 	}
 
-	val, err := s.svc.Get(req.Key)
+	value, err := s.svc.Get(req.Key)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, api.GetResponse{Value: val})
+	c.JSON(http.StatusOK, gin.H{"value": value})
 }
 
 // handleSet processes SET requests
@@ -105,7 +96,7 @@ func (s *HTTPServer) handleSet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, api.SetResponse{})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 // handleDel processes DEL requests
@@ -124,48 +115,11 @@ func (s *HTTPServer) handleDel(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DelResponse{})
 }
 
+func (s *HTTPServer) UpdateNodeData(c *gin.Context) (string, error) {
+	//var NodeData cluster.ShardInfo
+	//s.UpdateNodeData()
+	return "", nil
+}
 func (s *HTTPServer) handleHealth(c *gin.Context) {
-	c.Status(http.StatusOK)
-}
-
-func (s *HTTPServer) handleLastSeq(c *gin.Context) {
-	lastSeq := s.svc.GetLastSeq()
-	c.JSON(http.StatusOK, gin.H{"last_seq": lastSeq})
-}
-
-func (s *HTTPServer) handleUpdateState(c *gin.Context) {
-	var req UpdateStateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := s.svc.UpdateNodeState(req.State, req.LeaderID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusOK)
-}
-
-func (s *HTTPServer) handleGetWALSince(c *gin.Context) {
-	seqStr := c.Query("since")
-	seq, err := strconv.ParseInt(seqStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sequence number"})
-		return
-	}
-
-	wal := s.svc.GetWALSince(seq)
-	c.JSON(http.StatusOK, wal)
-}
-
-func (s *HTTPServer) handleWALProgress(c *gin.Context) {
-	var req WALProgressRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	s.svc.UpdateFollowerProgress(req.FollowerID, req.Seq)
 	c.Status(http.StatusOK)
 }

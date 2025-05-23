@@ -2,7 +2,7 @@ package service
 
 import (
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/api"
@@ -52,7 +52,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 
 	var isFollower bool
 	for _, f := range shardInfo.GetFollowers() {
-		if f.GetID() == targetNodeID && f.GetStatus() == types.NodeStatusActive {
+		if f.GetID() == targetNodeID && f.GetStatus() == cluster.NodeStatusActive {
 			isFollower = true
 			break
 		}
@@ -62,7 +62,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 	}
 
 	targetNode, err := c.NodeManager.GetNodeInfo(targetNodeID)
-	if err != nil || targetNode.Status != types.NodeStatusActive {
+	if err != nil || targetNode.Status != cluster.NodeStatusActive {
 		return fmt.Errorf("invalid or inactive target node")
 	}
 
@@ -77,7 +77,7 @@ func (c *KvController) ChangePartitionLeader(shardID, targetNodeID int) error {
 		return fmt.Errorf("failed to notify new leader: %v", err)
 	}
 
-	var followers []*interfaces.NodeInfo
+	var followers []*cluster.NodeInfo
 	for _, f := range shardInfo.GetFollowers() {
 		if node, err := c.NodeManager.GetNodeInfo(f.GetID()); err == nil {
 			followers = append(followers, &node)

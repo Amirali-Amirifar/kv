@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/cluster"
 	"net/http"
 	"time"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
-	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
 	"github.com/sirupsen/logrus"
 )
 
@@ -61,7 +60,7 @@ func (hm *HealthManager) checkNodes() {
 	}
 }
 
-func (hm *HealthManager) checkNode(node interfaces.NodeInfo) error {
+func (hm *HealthManager) checkNode(node cluster.NodeInfo) error {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/health", node.Address.IP.String(), node.Address.Port))
 	if err != nil {
@@ -76,16 +75,16 @@ func (hm *HealthManager) checkNode(node interfaces.NodeInfo) error {
 	return nil
 }
 
-func (hm *HealthManager) handleNodeFailure(node interfaces.NodeInfo) {
+func (hm *HealthManager) handleNodeFailure(node cluster.NodeInfo) {
 	hm.nodeManager.mutex.Lock()
 	defer hm.nodeManager.mutex.Unlock()
 
 	n := hm.nodeManager.Nodes[node.ID]
 	if n != nil {
-		n.Status = types.NodeStatusFailed
+		n.Status = cluster.NodeStatusFailed
 
 		// If this was a master node, we need to elect a new leader
-		if n.StoreNodeType == types.NodeTypeMaster {
+		if n.StoreNodeType == cluster.NodeTypeMaster {
 			hm.electNewLeader(n.ShardKey)
 		}
 	}
@@ -99,12 +98,12 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}
 
 	// Find the follower with the highest sequence number
-	var newLeader *interfaces.NodeInfo
+	var newLeader *cluster.NodeInfo
 	var highestSeq int64 = -1
 
 	// Check all followers
 	for _, follower := range shardInfo.Followers {
-		if follower.Status != types.NodeStatusActive {
+		if follower.Status != cluster.NodeStatusActive {
 			continue
 		}
 
@@ -128,10 +127,10 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 
 	// Update the shard's master
 	shardInfo.Master = newLeader
-	newLeader.StoreNodeType = types.NodeTypeMaster
+	newLeader.StoreNodeType = cluster.NodeTypeMaster
 
 	// Remove the new leader from followers list
-	newFollowers := make([]*interfaces.NodeInfo, 0)
+	newFollowers := make([]*cluster.NodeInfo, 0)
 	for _, f := range shardInfo.Followers {
 		if f.ID != newLeader.ID {
 			newFollowers = append(newFollowers, f)
@@ -156,11 +155,11 @@ func (hm *HealthManager) electNewLeader(shardKey int) {
 	}).Info("New leader elected")
 }
 
-func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state types.StoreNodeType, leaderID int) error {
+func (hm *HealthManager) updateNodeState(node *cluster.NodeInfo, state cluster.StoreNodeType, leaderID int) error {
 	client := &http.Client{Timeout: hm.timeout}
 	stateUpdate := struct {
-		State    types.StoreNodeType `json:"state"`
-		LeaderID int                 `json:"leader_id"`
+		State    cluster.StoreNodeType `json:"state"`
+		LeaderID int                   `json:"leader_id"`
 	}{
 		State:    state,
 		LeaderID: leaderID,
@@ -188,17 +187,17 @@ func (hm *HealthManager) updateNodeState(node *interfaces.NodeInfo, state types.
 	return nil
 }
 
-func (hm *HealthManager) notifyNewLeader(node *interfaces.NodeInfo) error {
-	return hm.updateNodeState(node, types.NodeTypeMaster, node.ID)
+func (hm *HealthManager) notifyNewLeader(node *cluster.NodeInfo) error {
+	return hm.updateNodeState(node, cluster.NodeTypeMaster, node.ID)
 }
 
-func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLeader *interfaces.NodeInfo) error {
+func (hm *HealthManager) notifyFollowers(followers []*cluster.NodeInfo, newLeader *cluster.NodeInfo) error {
 	var lastErr error
 	for _, follower := range followers {
 		if follower.ID == newLeader.ID {
 			continue // Skip the new leader
 		}
-		if err := hm.updateNodeState(follower, types.NodeTypeFollower, newLeader.ID); err != nil {
+		if err := hm.updateNodeState(follower, cluster.NodeTypeFollower, newLeader.ID); err != nil {
 			logrus.WithError(err).WithField("follower", follower.ID).Warn("Failed to notify follower about leader change")
 			lastErr = err
 		}
@@ -206,7 +205,7 @@ func (hm *HealthManager) notifyFollowers(followers []*interfaces.NodeInfo, newLe
 	return lastErr
 }
 
-func (hm *HealthManager) getNodeLastSeq(node *interfaces.NodeInfo) (int64, error) {
+func (hm *HealthManager) getNodeLastSeq(node *cluster.NodeInfo) (int64, error) {
 	client := &http.Client{Timeout: hm.timeout}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/last-seq", node.Address.IP.String(), node.Address.Port))
 	if err != nil {

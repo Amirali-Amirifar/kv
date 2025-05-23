@@ -1,4 +1,4 @@
-package types
+package cluster
 
 type NodeStatus string
 
