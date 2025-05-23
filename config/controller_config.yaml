@@ -3,7 +3,7 @@ address:
   port: 8080
 
 cluster:
-  partitions: 4 # hash % 4
+  partitions: 2 # hash % 4
   replicas: 2 # 1 leader and 1 follower
 
 discovery:
@@ -12,4 +12,4 @@ discovery:
 
 api:
   enable_dashboard: true
-  dashboard_port: 9091
+  dashboard_port: 3000

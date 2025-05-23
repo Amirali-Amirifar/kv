@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState} from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -24,70 +24,9 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {useGetCluster} from "@/lib/api/api";
 
-// Mock data - in a real app, this would come from an API
-const nodes = [
-    {
-        id: "node-1",
-        name: "db-node-01",
-        status: "active",
-        ip: "10.0.1.101",
-        region: "us-east",
-        partitions: 12,
-        cpu: 32,
-        memory: "64GB",
-        storage: "2TB",
-        uptime: "45d 12h",
-    },
-    {
-        id: "node-2",
-        name: "db-node-02",
-        status: "active",
-        ip: "10.0.1.102",
-        region: "us-east",
-        partitions: 12,
-        cpu: 32,
-        memory: "64GB",
-        storage: "2TB",
-        uptime: "45d 10h",
-    },
-    {
-        id: "node-3",
-        name: "db-node-03",
-        status: "active",
-        ip: "10.0.1.103",
-        region: "us-east",
-        partitions: 12,
-        cpu: 32,
-        memory: "64GB",
-        storage: "2TB",
-        uptime: "44d 22h",
-    },
-    {
-        id: "node-4",
-        name: "db-node-04",
-        status: "warning",
-        ip: "10.0.1.104",
-        region: "us-east",
-        partitions: 12,
-        cpu: 32,
-        memory: "64GB",
-        storage: "2TB",
-        uptime: "15d 6h",
-    },
-    {
-        id: "node-5",
-        name: "db-node-05",
-        status: "failed",
-        ip: "10.0.1.105",
-        region: "us-east",
-        partitions: 0,
-        cpu: 32,
-        memory: "64GB",
-        storage: "2TB",
-        uptime: "0d 0h",
-    },
-]
+
 
 interface NodesListProps {
     onNodeSelect: (nodeId: string) => void
@@ -96,41 +35,69 @@ interface NodesListProps {
 export function NodesList({ onNodeSelect }: NodesListProps) {
     const [nodeToRemove, setNodeToRemove] = useState<string | null>(null)
 
+    const {data} = useGetCluster()
+
+    // Transform cluster data into flat array of nodes with additional UI properties
+    const nodes = data ? Object.values(data.shards).flat().map(node => ({
+        ...node,
+        name: `node-${node.id}`,
+        ip: `${node.address.ip}:${node.address.port}`,
+        region: "us-east", // Default region since not in API data
+        partitions: node.shard_key || 0,
+        cpu: 32, // Default values since not in API data
+        memory: "64GB",
+        storage: "2TB",
+        uptime: node.status === "active" ? "Unknown" : "0d 0h", // Default uptime
+    })) : []
+
     const getStatusIcon = (status: string) => {
-        switch (status) {
+        switch (status.toLowerCase()) {
             case "active":
+            case "running":
                 return <CheckCircle2 className="h-4 w-4 text-green-500" />
             case "warning":
+            case "degraded":
                 return <AlertTriangle className="h-4 w-4 text-yellow-500" />
             case "failed":
+            case "down":
+            case "stopped":
                 return <XCircle className="h-4 w-4 text-red-500" />
             default:
-                return null
+                return <AlertTriangle className="h-4 w-4 text-gray-500" />
         }
     }
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
+        const normalizedStatus = status.toLowerCase()
+        switch (normalizedStatus) {
             case "active":
+            case "running":
                 return (
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                         Active
                     </Badge>
                 )
             case "warning":
+            case "degraded":
                 return (
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
                         Warning
                     </Badge>
                 )
             case "failed":
+            case "down":
+            case "stopped":
                 return (
                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
                         Failed
                     </Badge>
                 )
             default:
-                return null
+                return (
+                    <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+                        {status}
+                    </Badge>
+                )
         }
     }
 
@@ -140,12 +107,18 @@ export function NodesList({ onNodeSelect }: NodesListProps) {
         setNodeToRemove(null)
     }
 
+    const getNodeTypeDisplay = (nodeType: string) => {
+        return nodeType.charAt(0).toUpperCase() + nodeType.slice(1)
+    }
+
     return (
         <>
             <Card>
                 <CardHeader>
                     <CardTitle>Database Nodes</CardTitle>
-                    <CardDescription>Manage your distributed database nodes</CardDescription>
+                    <CardDescription>
+                        Manage your distributed database nodes ({nodes.length} nodes total)
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -153,57 +126,76 @@ export function NodesList({ onNodeSelect }: NodesListProps) {
                             <TableRow>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Name</TableHead>
-                                <TableHead>IP Address</TableHead>
-                                <TableHead>Region</TableHead>
-                                <TableHead>Partitions</TableHead>
-                                <TableHead>Uptime</TableHead>
+                                <TableHead>Address</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Shard Key</TableHead>
+                                <TableHead>Leader ID</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {nodes.map((node) => (
-                                <TableRow key={node.id} onClick={() => onNodeSelect(node.id)} className="cursor-pointer">
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            {getStatusIcon(node.status)}
-                                            <span className="ml-2 hidden md:inline-block">{getStatusBadge(node.status)}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{node.name}</TableCell>
-                                    <TableCell>{node.ip}</TableCell>
-                                    <TableCell>{node.region}</TableCell>
-                                    <TableCell>{node.partitions}</TableCell>
-                                    <TableCell>{node.uptime}</TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Open menu</span>
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => onNodeSelect(node.id)}>View details</DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem>
-                                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                                    Restart node
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem>
-                                                    <PowerOff className="mr-2 h-4 w-4" />
-                                                    {node.status === "failed" ? "Start node" : "Stop node"}
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-red-600" onClick={() => setNodeToRemove(node.id)}>
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Remove node
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                            {nodes.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                        {data ? "No nodes found" : "Loading nodes..."}
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : (
+                                nodes.map((node) => (
+                                    <TableRow
+                                        key={node.id}
+                                        onClick={() => onNodeSelect(node.id.toString())}
+                                        className="cursor-pointer"
+                                    >
+                                        <TableCell>
+                                            <div className="flex items-center">
+                                                {getStatusIcon(node.status)}
+                                                <span className="ml-2 hidden md:inline-block">
+                                                    {getStatusBadge(node.status)}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-medium">{node.name}</TableCell>
+                                        <TableCell>{node.ip}</TableCell>
+                                        <TableCell>{getNodeTypeDisplay(node.node_type)}</TableCell>
+                                        <TableCell>{node.shard_key}</TableCell>
+                                        <TableCell>{node.leader_id}</TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                                        <span className="sr-only">Open menu</span>
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuItem onClick={() => onNodeSelect(node.id.toString())}>
+                                                        View details
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem>
+                                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                                        Restart node
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem>
+                                                        <PowerOff className="mr-2 h-4 w-4" />
+                                                        {node.status.toLowerCase() === "failed" || node.status.toLowerCase() === "stopped" ? "Start node" : "Stop node"}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-red-600"
+                                                        onClick={() => setNodeToRemove(node.id.toString())}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Remove node
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>

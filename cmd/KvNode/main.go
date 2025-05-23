@@ -17,9 +17,12 @@ func runKvNode(configPath string) {
 	config.LoadConfig(configPath, &cfg)
 	log.Printf("Loaded Config %#v", cfg)
 	service := kvNode.NewKvNodeService(&cfg)
-
+	err := service.Start()
+	if err != nil {
+		log.Fatalf("Error starting kvNode: %v", err)
+	}
 	server := api.NewHTTPServer(service)
-	err := server.Serve(cfg.Address.Port)
+	err = server.Serve(cfg.Address.Port)
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +40,7 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./config/node_config.yaml", "Path to config file")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./config/node_config_1.yaml", "Path to config file")
 	//rootCmd.MarkPersistentFlagRequired("config") // <-- this line makes it mandatory
 
 	if err := rootCmd.Execute(); err != nil {

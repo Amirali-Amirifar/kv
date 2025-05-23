@@ -95,6 +95,8 @@ func (s *HTTPServer) handleGet(c *gin.Context) {
 func (s *HTTPServer) handleSet(c *gin.Context) {
 	var req api.SetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Println("Failed to read request body")
+
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

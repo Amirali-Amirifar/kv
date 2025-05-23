@@ -2,7 +2,9 @@ package api
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,6 +30,16 @@ type ControllerRouteHandler interface {
 // SetupRouter initializes Gin router with routes bound to provided handlers
 func SetupRouter(h ControllerRouteHandler) *gin.Engine {
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"*"},
+		AllowCredentials: false, // must be false with "*"
+		MaxAge:           12 * time.Hour,
+	}))
+
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "KvController API is running")
 	})

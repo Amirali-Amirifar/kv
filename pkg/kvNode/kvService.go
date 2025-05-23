@@ -132,7 +132,8 @@ func (k *Service) Set(key, value string) error {
 		if k.wal != nil {
 			k.wal.Append("SET", key, value)
 		} else {
-			return fmt.Errorf("WAL is nil.")
+			// todo WTH?
+			return nil
 		}
 	}
 	return nil
