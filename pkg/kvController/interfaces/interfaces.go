@@ -1,13 +1,15 @@
 package interfaces
 
 import (
-	"github.com/Amirali-Amirifar/kv/internal/types"
 	"net"
+
+	"github.com/Amirali-Amirifar/kv/internal/types"
 )
 
 type NodeInfo struct {
 	ID            int
 	ShardKey      int
+	LeaderID      int
 	Status        types.NodeStatus
 	Address       net.TCPAddr
 	StoreNodeType types.StoreNodeType
@@ -57,12 +59,12 @@ type ShardInterface interface {
 type NodeManagerInterface interface {
 	GetShardInfo(shardID int) (ShardInterface, bool)
 	GetNodeInfo(nodeID int) (NodeInfo, error)
-	RegisterNode(address string, port int) error
+	RegisterNode(address string, port int) (*NodeInfo, error)
 	UpdateShardMaster(shardID int, masterID int) error
 }
 
 type KvControllerInterface interface {
-	RegisterNode(address string, port int) error
+	RegisterNode(address string, port int) (*NodeInfo, error)
 	ChangePartitionLeader(shardID int, nodeID int) error
 	GetNodeManager() NodeManagerInterface
 }

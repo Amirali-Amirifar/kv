@@ -13,3 +13,8 @@ type WALProgressRequest struct {
 	FollowerID int   `json:"follower_id"`
 	Seq        int64 `json:"seq"`
 }
+
+type RegisterNodeRequest struct {
+	IP   int    `json:"ip"`
+	Port string `json:"port"`
+}

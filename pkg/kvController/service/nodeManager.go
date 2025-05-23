@@ -2,10 +2,11 @@ package service
 
 import (
 	"fmt"
-	"github.com/Amirali-Amirifar/kv/internal/types"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/Amirali-Amirifar/kv/internal/types"
 
 	"github.com/Amirali-Amirifar/kv/internal/config"
 	"github.com/Amirali-Amirifar/kv/pkg/kvController/interfaces"
@@ -69,15 +70,15 @@ func (nm *NodeManager) initializeNodes() {
 	}
 }
 
-func (nm *NodeManager) RegisterNode(address string, port int) error {
+func (nm *NodeManager) RegisterNode(address string, port int) (*interfaces.NodeInfo, error) {
 	// See if there is an empty spot in the nodes list,
 	// unregistered / failed nodes are empty spots
 	ip := net.ParseIP(address)
 	if ip == nil {
-		return fmt.Errorf("invalid IP address: %s", address)
+		return nil, fmt.Errorf("invalid IP address: %s", address)
 	}
 	if port < 1 || port > 65535 {
-		return fmt.Errorf("invalid port: %d", port)
+		return nil, fmt.Errorf("invalid port: %d", port)
 	}
 	addr := net.TCPAddr{
 		IP:   ip,
@@ -90,28 +91,31 @@ func (nm *NodeManager) RegisterNode(address string, port int) error {
 	for _, node := range nm.Nodes {
 		if node.Address.IP.Equal(addr.IP) && node.Address.Port == addr.Port {
 			if node.Status == types.NodeStatusActive {
-				return fmt.Errorf("node %s:%d is already registered.", address, port)
+				return node, fmt.Errorf("node %s:%d is already registered.", address, port)
 			}
 			node.Status = types.NodeStatusSyncing
+			node.LeaderID = nm.ShardMap[node.ShardKey].Master.ID
 			// TODO: Start syncing data from master.
-			return nil
+			return node, nil
 		}
 	}
 	for _, node := range nm.Nodes {
 		if node.StoreNodeType == types.NodeTypeFollower && node.Status == types.NodeStatusFailed {
 			node.Address = addr
 			node.Status = types.NodeStatusSyncing
-			return nil
+			node.LeaderID = nm.ShardMap[node.ShardKey].Master.ID
+			return node, nil
 		}
 	}
 	for _, node := range nm.Nodes {
 		if node.Status == types.NodeStatusUnregistered {
 			node.Address = addr
 			node.Status = types.NodeStatusSyncing
-			return nil
+			node.LeaderID = nm.ShardMap[node.ShardKey].Master.ID
+			return node, nil
 		}
 	}
-	return fmt.Errorf("cannot register node at %s:%d: all cluster spots are full", address, port)
+	return nil, fmt.Errorf("cannot register node at %s:%d: all cluster spots are full", address, port)
 }
 
 func (nm *NodeManager) GetNodeInfo(nodeID int) (interfaces.NodeInfo, error) {

@@ -2,11 +2,12 @@ package api
 
 import (
 	"bytes"
-	"github.com/Amirali-Amirifar/kv/internal/types"
-	"github.com/Amirali-Amirifar/kv/internal/types/api"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/Amirali-Amirifar/kv/internal/types"
+	"github.com/Amirali-Amirifar/kv/internal/types/api"
 
 	"github.com/Amirali-Amirifar/kv/pkg/kvNode"
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ type KvService interface {
 	UpdateNodeState(state types.StoreNodeType, leaderID int) error
 	GetWALSince(seq int64) []kvNode.WALRecord
 	UpdateFollowerProgress(followerID int, seq int64)
+	RegisterWithController() error
 }
 
 type HTTPServer struct {
@@ -39,7 +41,6 @@ func NewHTTPServer(svc KvService) *HTTPServer {
 func (s *HTTPServer) Serve(port int) error {
 	s.registerRoutes()
 	log.Printf("Listening to connections on HTTP, Port: %d\n", port)
-
 	return s.router.Run(":" + strconv.Itoa(port))
 }
 
@@ -65,6 +66,7 @@ func (s *HTTPServer) registerRoutes() {
 
 		c.Next()
 	})
+
 	s.router.POST("/get", s.handleGet)
 	s.router.POST("/set", s.handleSet)
 	s.router.POST("/del", s.handleDel)
